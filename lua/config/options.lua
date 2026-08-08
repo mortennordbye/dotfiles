@@ -8,8 +8,14 @@ vim.opt.title = true
 vim.opt.titlelen = 0 -- no truncation
 vim.opt.titlestring = "%{fnamemodify(getcwd(), ':t')}  %{expand('%:t') == '' ? '[no name]' : expand('%:t')}  (nvim)"
 
+-- Rounded borders for every floating window (hover docs, diagnostics, rename,
+-- lazy.nvim, mason, ...) without per-plugin border config. Native in nvim 0.11+.
+-- The border colour is set in lua/plugins/colorscheme.lua (FloatBorder).
+vim.o.winborder = "rounded"
+
 -- Clearer separation between split windows: heavy solid lines instead of the
--- default thin ones. The color is set in autocmds.lua (WinSeparator highlight).
+-- default thin ones. The colour is set in lua/plugins/colorscheme.lua
+-- (WinSeparator highlight).
 vim.opt.fillchars:append({
   horiz = "━",
   horizup = "┻",

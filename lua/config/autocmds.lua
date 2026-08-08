@@ -7,16 +7,10 @@
 -- Or remove existing autocmds by their group name (which is prefixed with `lazyvim_` for the defaults)
 -- e.g. vim.api.nvim_del_augroup_by_name("lazyvim_wrap_spell")
 
--- Brighten the divider between split windows (e.g. editor vs. Claude Code panel)
--- so the boundary is obvious. Re-applied whenever the colorscheme loads.
-local function set_win_separator()
-  vim.api.nvim_set_hl(0, "WinSeparator", { fg = "#7aa2f7", bold = true })
-end
-vim.api.nvim_create_autocmd("ColorScheme", {
-  group = vim.api.nvim_create_augroup("clear_win_separator", { clear = true }),
-  callback = set_win_separator,
-})
-set_win_separator()
+-- (WinSeparator used to be forced here with a hardcoded #7aa2f7. It now lives in
+-- tokyonight's on_highlights -- see lua/plugins/colorscheme.lua -- so the colour
+-- follows the palette instead of fighting it. This autocmd ran after the theme
+-- and overrode it, which also defeated dim_inactive on the separator.)
 
 -- Keep the Claude Code terminal OUT of the top bufferline / tab bar.
 -- It has its own panel; listing it as a buffer let it show up as a duplicate
