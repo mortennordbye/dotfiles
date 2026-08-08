@@ -17,13 +17,15 @@ return {
             "╚═╝  ╚═══╝╚══════╝ ╚═════╝   ╚═══╝  ╚═╝╚═╝     ╚═╝",
           }, "\n"),
 
-          -- "Recent Files" and "Projects" are dropped from the shortcut list:
-          -- both appear below as real sections with their own 1..n keys, and
-          -- listing them twice was the main source of clutter.
+          -- `p` and `d` are the two "where do I start?" entries: p picks a git
+          -- repo, d picks any folder under ~/Documents. "Recent Files" gets no
+          -- shortcut because that section below already has its own 1..n keys.
           -- Icons as \u{...} escapes, same reason as everywhere else in this
           -- file: literal Nerd Font glyphs get stripped to bare spaces.
           -- stylua: ignore
           keys = {
+            { icon = "\u{f07b} ",  key = "p", desc = "Open Project",     action = function() require("config.pickers").projects() end },
+            { icon = "\u{f07c} ",  key = "d", desc = "Open Folder",      action = function() require("config.pickers").folders() end },
             { icon = "\u{f002} ",  key = "f", desc = "Find File",       action = ":lua Snacks.dashboard.pick('files')" },
             { icon = "\u{f15c} ",  key = "g", desc = "Find Text",       action = ":lua Snacks.dashboard.pick('live_grep')" },
             { icon = "\u{f15b} ",  key = "n", desc = "New File",        action = ":ene | startinsert" },
@@ -54,7 +56,13 @@ return {
             icon = "\u{f07c} ", -- folder-open
             title = "Projects",
             section = "projects",
-            limit = 3,
+            -- Real repositories under the dev roots, newest first. Without
+            -- this the section walks recent files and resolves git roots,
+            -- so it only ever listed the two repos with recent edits.
+            dirs = function()
+              return require("config.pickers").repos()
+            end,
+            limit = 5,
             indent = 2,
             padding = 1,
           },
