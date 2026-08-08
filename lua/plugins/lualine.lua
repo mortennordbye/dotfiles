@@ -26,6 +26,22 @@ return {
     opts.options.component_separators = { left = "\u{e0b1}", right = "\u{e0b3}" }
     opts.options.globalstatus = true
 
+    -- Move the clock out of section z.
+    --
+    -- In every lualine theme, z shares the bright accent colour with section a
+    -- (the mode indicator) -- here #82aaff on both ends. That gave the time the
+    -- same visual weight as "am I in insert mode", which is the loudest thing
+    -- on the bar for the least useful information. Section y uses the medium
+    -- background (#3b4261), which is the right level for it.
+    --
+    -- Delete this block to restore the stock bright clock; delete the clock
+    -- component instead if you would rather not have the time at all.
+    local z = opts.sections.lualine_z
+    if z and z[1] then
+      table.insert(opts.sections.lualine_y, z[1])
+      opts.sections.lualine_z = {}
+    end
+
     table.insert(opts.sections.lualine_c, 1, {
       function()
         return vim.fn.fnamemodify(vim.uv.cwd() or "", ":~")
