@@ -1,0 +1,41 @@
+# Ghostty config — tuned for LazyVim
+# Docs: https://ghostty.org/docs/config
+# Reload after editing: Cmd+Shift+, (or restart Ghostty)
+
+# --- Font ---
+font-family = "JetBrainsMono Nerd Font Mono"
+font-size = 14
+# Slightly taller lines read nicer in editors
+adjust-cell-height = 8%
+
+# --- Theme ---
+# Ghostty ships many themes. Browse with:  ghostty +list-themes
+# tokyonight pairs well with LazyVim's default colorscheme.
+theme = tokyonight
+
+# --- Window ---
+background-opacity = 0.98
+window-padding-x = 8
+window-padding-y = 6
+# Remember window size between launches
+window-save-state = always
+macos-titlebar-style = tabs
+
+# --- Cursor ---
+cursor-style = block
+cursor-style-blink = false
+# Let Neovim control the cursor shape (insert = bar, etc.)
+shell-integration-features = cursor,sudo,title
+
+# --- Behaviour ---
+# macOS Option key as Alt so <A-...> mappings work in Neovim
+macos-option-as-alt = true
+copy-on-select = clipboard
+# Ask before closing a terminal that has a running program (e.g. Neovim),
+# so an accidental Cmd+W doesn't nuke your session.
+confirm-close-surface = true
+mouse-hide-while-typing = true
+
+# Quit an instance once its last window is closed. Combined with AeroSpace's
+# `open -na` launch, this stops empty "ghost" Ghostty instances from piling up.
+quit-after-last-window-closed = true
