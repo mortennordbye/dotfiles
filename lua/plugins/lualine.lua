@@ -42,6 +42,20 @@ return {
       opts.sections.lualine_z = {}
     end
 
+    -- Next departure home (see lua/config/ruter.lua). Refreshed on a
+    -- background timer, so this only reads a cached string. Shows nothing when
+    -- there is no journey -- which includes the common case of already being
+    -- at home, where origin and destination are the same place.
+    local ruter = require("config.ruter")
+    ruter.setup()
+    table.insert(opts.sections.lualine_y, 1, {
+      ruter.component,
+      color = ruter.color,
+      cond = function()
+        return ruter.state.text ~= ""
+      end,
+    })
+
     table.insert(opts.sections.lualine_c, 1, {
       function()
         return vim.fn.fnamemodify(vim.uv.cwd() or "", ":~")
