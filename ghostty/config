@@ -10,13 +10,28 @@ adjust-cell-height = 8%
 
 # --- Theme ---
 # Ghostty ships many themes. Browse with:  ghostty +list-themes
-# tokyonight pairs well with LazyVim's default colorscheme.
-theme = tokyonight
+# Must match the Neovim colorscheme variant or the terminal background and the
+# editor background are subtly different shades. LazyVim runs tokyonight in the
+# "moon" style, so plain `tokyonight` (= storm) was a near-miss.
+theme = TokyoNight Moon
+
+# Render in Display P3 rather than sRGB. On a modern Mac panel this is the
+# single biggest colour improvement available: the tokyonight blues and
+# magentas stop looking washed out.
+window-colorspace = display-p3
 
 # --- Window ---
-background-opacity = 0.98
-window-padding-x = 8
-window-padding-y = 6
+background-opacity = 0.95
+# Frosted glass behind the translucent background instead of whatever window
+# happens to be underneath. Keeps text legible at lower opacity.
+background-blur-radius = 20
+window-padding-x = 10
+window-padding-y = 8
+# Keep padding even when the cell grid doesn't divide the window exactly,
+# rather than dumping the remainder on one edge.
+window-padding-balance = true
+# Fade splits that don't have focus, matching Neovim's dim_inactive.
+unfocused-split-opacity = 0.92
 # Remember window size between launches
 window-save-state = always
 macos-titlebar-style = tabs
