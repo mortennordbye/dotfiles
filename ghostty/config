@@ -21,10 +21,18 @@ theme = TokyoNight Moon
 window-colorspace = display-p3
 
 # --- Window ---
-background-opacity = 0.95
-# Frosted glass behind the translucent background instead of whatever window
-# happens to be underneath. Keeps text legible at lower opacity.
-background-blur-radius = 20
+# Fully opaque, deliberately.
+#
+# `background-opacity` below 1 applies ONLY to the default background, because
+# `background-opacity-cells` defaults to false. Neovim paints explicit
+# #222436 cells, which stay opaque, while the window padding stays translucent
+# and picks up the desktop wallpaper -- so the editor looked like it sat on a
+# slightly different colour to its own border. Opaque removes the seam.
+#
+# To get the glass look back, set opacity below 1 AND
+# `background-opacity-cells = true`, so cell backgrounds are translucent too.
+# That keeps things consistent but also makes text backgrounds see-through.
+background-opacity = 1
 window-padding-x = 10
 window-padding-y = 8
 # Keep padding even when the cell grid doesn't divide the window exactly,
