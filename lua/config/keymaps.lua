@@ -35,3 +35,6 @@ map("t", "<C-w>", "<C-\\><C-n><C-w>", { desc = "Window command (from terminal)" 
 -- <leader>bR = force-reload current buffer (discards local unsaved changes).
 map("n", "<leader>br", "<cmd>checktime<cr>", { desc = "Reload changed files from disk" })
 map("n", "<leader>bR", "<cmd>edit!<cr>", { desc = "Force reload buffer (discard changes)" })
+
+-- Show / hide the VSCode-style activity bar (lua/config/activitybar.lua).
+map("n", "<leader>uA", function() require("config.activitybar").toggle() end, { desc = "Toggle Activity Bar" })

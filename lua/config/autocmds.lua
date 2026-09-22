@@ -42,3 +42,6 @@ vim.api.nvim_create_autocmd("FileChangedShellPost", {
     vim.notify("File changed on disk — buffer reloaded", vim.log.levels.INFO)
   end,
 })
+
+-- VSCode-style activity bar down the left edge; see lua/config/activitybar.lua.
+require("config.activitybar").setup()
