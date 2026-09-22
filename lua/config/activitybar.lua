@@ -183,7 +183,9 @@ function M.render()
   local text, map = {}, {}
   local function add(item)
     text[#text + 1] = ""
-    text[#text + 1] = "  " .. item.icon
+    -- the trailing spaces give the icon room to be drawn two cells wide
+    -- (ghostty/config maps these codepoints to a full-size icon font)
+    text[#text + 1] = "  " .. item.icon .. "  "
     map[#text] = item
   end
   for _, item in ipairs(top) do
@@ -323,12 +325,36 @@ function M.toggle()
   end
 end
 
+---@param a integer
+---@param b integer
+---@param t number share of `a`
+local function blend(a, b, t)
+  local ret = 0
+  for shift = 16, 0, -8 do
+    local ca, cb = bit.band(bit.rshift(a, shift), 0xff), bit.band(bit.rshift(b, shift), 0xff)
+    ret = ret + bit.lshift(math.floor(ca * t + cb * (1 - t) + 0.5), shift)
+  end
+  return ret
+end
+
 local function highlights()
   local sidebar = vim.fn.hlexists("NormalSB") == 1 and "NormalSB" or "NormalFloat"
   vim.api.nvim_set_hl(0, "ActivityBar", { link = sidebar, default = true })
-  vim.api.nvim_set_hl(0, "ActivityBarIcon", { link = "Comment", default = true })
-  vim.api.nvim_set_hl(0, "ActivityBarActive", { link = "Title", default = true })
-  vim.api.nvim_set_hl(0, "ActivityBarIndicator", { link = "Special", default = true })
+  local normal = vim.api.nvim_get_hl(0, { name = "Normal", link = false })
+  local bg = vim.api.nvim_get_hl(0, { name = sidebar, link = false }).bg or normal.bg
+  local fg = normal.fg
+  local accent = vim.api.nvim_get_hl(0, { name = "Directory", link = false }).fg
+  if fg and bg then
+    -- inactive icons: most of the way to the text colour, so they read clearly
+    -- but still step back from the lit one
+    vim.api.nvim_set_hl(0, "ActivityBarIcon", { fg = blend(fg, bg, 0.75), default = true })
+    vim.api.nvim_set_hl(0, "ActivityBarActive", { fg = accent or fg, bold = true, default = true })
+    vim.api.nvim_set_hl(0, "ActivityBarIndicator", { fg = accent or fg, default = true })
+  else
+    vim.api.nvim_set_hl(0, "ActivityBarIcon", { link = "Normal", default = true })
+    vim.api.nvim_set_hl(0, "ActivityBarActive", { link = "Title", default = true })
+    vim.api.nvim_set_hl(0, "ActivityBarIndicator", { link = "Special", default = true })
+  end
 end
 
 function M.setup()
