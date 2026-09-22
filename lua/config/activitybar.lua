@@ -72,6 +72,7 @@ end
 ---@field name string
 ---@field run fun()
 ---@field active? fun(): boolean
+---@field badge? fun(): integer? count shown under the icon, like VSCode's badges
 ---@field bottom? boolean
 
 ---@type activitybar.Item[]
@@ -101,6 +102,7 @@ M.items = {
     icon = "",
     name = "Source Control",
     active = function() return sidebar(true) ~= nil end,
+    badge = function() return M.changes end,
     run = function()
       local open = sidebar(true)
       local cwd = close_sidebars()
@@ -149,9 +151,71 @@ M.items = {
     icon = "",
     name = "Plugins",
     bottom = true,
+    badge = function() return #require("lazy.manage.checker").updated end,
     run = function() require("lazy").show() end,
   },
 }
+
+-- Changed files across the project's repos, for the Source Control badge.
+-- Counted in the background; the badge shows the last answer.
+M.changes = nil ---@type integer?
+local counting = false
+function M.count_changes()
+  if counting then
+    return
+  end
+  local p = sidebar(false) or sidebar(true)
+  local cwd = p and p:cwd() or LazyVim.root()
+  local root = Snacks.git.get_root(cwd)
+  local repos = root and { root } or require("config.explorer_git").nested_repos(cwd)
+  counting = true
+  local total, left = 0, #repos
+  local function done()
+    counting = false
+    if M.changes ~= total then
+      M.changes = total
+      M.render()
+    end
+  end
+  if left == 0 then
+    total = nil
+    return done()
+  end
+  for _, repo in ipairs(repos) do
+    vim.system({ "git", "--no-optional-locks", "status", "--porcelain", "-unormal" }, { cwd = repo }, function(res)
+      if res.code == 0 then
+        total = total + #vim.split(vim.trim(res.stdout or ""), "\n", { trimempty = true })
+      end
+      left = left - 1
+      if left == 0 then
+        vim.schedule(done)
+      end
+    end)
+  end
+end
+
+-- Workspace-wide problems and the clock, stacked above the bottom icons.
+-- Each is {text, hl, run?}; text fits in WIDTH cells.
+---@return {[1]: string, [2]: string, run?: fun()}[]
+local function status_rows()
+  local rows = {}
+  local count = vim.diagnostic.count(nil)
+  local function problems()
+    leave_bar()
+    Snacks.picker.diagnostics()
+  end
+  for _, d in ipairs({
+    { vim.diagnostic.severity.ERROR, "\u{ea87}", "DiagnosticError" },
+    { vim.diagnostic.severity.WARN, "\u{ea6c}", "DiagnosticWarn" },
+  }) do
+    local n = count[d[1]] or 0
+    if n > 0 then
+      rows[#rows + 1] = { " " .. d[2] .. " " .. (n > 99 and "99" or tostring(n)), d[3], run = problems }
+    end
+  end
+  rows[#rows + 1] = { os.date("%H:%M"), "ActivityBarClock" }
+  return rows
+end
 
 local ns = vim.api.nvim_create_namespace(FT)
 local buf ---@type integer?
@@ -180,22 +244,40 @@ function M.render()
     table.insert(item.bottom and bottom or top, item)
   end
 
-  local text, map = {}, {}
+  local text, map, hls = { "" }, {}, {}
+  -- icon row, then a row that holds its badge (or stays blank as spacing)
   local function add(item)
-    text[#text + 1] = ""
     -- the trailing spaces give the icon room to be drawn two cells wide
     -- (ghostty/config maps these codepoints to a full-size icon font)
     text[#text + 1] = "  " .. item.icon .. "  "
     map[#text] = item
+    local ok, on = pcall(item.active or function() return false end)
+    hls[#text] = ok and on and "ActivityBarActive" or "ActivityBarIcon"
+    local n = item.badge and select(2, pcall(item.badge))
+    if type(n) == "number" and n > 0 then
+      text[#text + 1] = "  " .. (n > 999 and "1k+" or tostring(n))
+      hls[#text] = "ActivityBarBadge"
+    else
+      text[#text + 1] = ""
+    end
   end
   for _, item in ipairs(top) do
     add(item)
   end
-  -- push the bottom group down to the window's last rows
+  -- status rows and the bottom group sit on the window's last rows
+  local status = status_rows()
   local height = vim.api.nvim_win_get_height(w)
-  while #text < height - #bottom * 2 do
+  while #text < height - #status - 1 - #bottom * 2 do
     text[#text + 1] = ""
   end
+  for _, row in ipairs(status) do
+    text[#text + 1] = row[1]
+    hls[#text] = row[2]
+    if row.run then
+      map[#text] = { name = "Problems", icon = "", run = row.run }
+    end
+  end
+  text[#text + 1] = ""
   for _, item in ipairs(bottom) do
     add(item)
   end
@@ -205,13 +287,11 @@ function M.render()
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, text)
   vim.bo[buf].modifiable = false
   vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
-  for lnum, item in pairs(map) do
-    local ok, on = pcall(item.active or function() return false end)
-    on = ok and on
+  for lnum, hl in pairs(hls) do
     vim.api.nvim_buf_set_extmark(buf, ns, lnum - 1, 0, {
       end_col = #text[lnum],
-      hl_group = on and "ActivityBarActive" or "ActivityBarIcon",
-      virt_text = on and { { "▎", "ActivityBarIndicator" } } or nil,
+      hl_group = hl,
+      virt_text = hl == "ActivityBarActive" and { { "▎", "ActivityBarIndicator" } } or nil,
       virt_text_pos = "overlay",
     })
   end
@@ -351,7 +431,11 @@ local function highlights()
     vim.api.nvim_set_hl(0, "ActivityBarIcon", { fg = blend(fg, bg, 0.75), default = true })
     vim.api.nvim_set_hl(0, "ActivityBarActive", { fg = accent or fg, bold = true, default = true })
     vim.api.nvim_set_hl(0, "ActivityBarIndicator", { fg = accent or fg, default = true })
+    vim.api.nvim_set_hl(0, "ActivityBarBadge", { fg = accent or fg, bold = true, default = true })
+    vim.api.nvim_set_hl(0, "ActivityBarClock", { fg = blend(fg, bg, 0.6), default = true })
   else
+    vim.api.nvim_set_hl(0, "ActivityBarBadge", { link = "Special", default = true })
+    vim.api.nvim_set_hl(0, "ActivityBarClock", { link = "Comment", default = true })
     vim.api.nvim_set_hl(0, "ActivityBarIcon", { link = "Normal", default = true })
     vim.api.nvim_set_hl(0, "ActivityBarActive", { link = "Title", default = true })
     vim.api.nvim_set_hl(0, "ActivityBarIndicator", { link = "Special", default = true })
@@ -382,10 +466,29 @@ function M.setup()
     end)
   end
   M.refresh = refresh
-  vim.api.nvim_create_autocmd({ "WinNew", "WinClosed", "BufWinEnter", "WinResized", "VimResized", "TermClose" }, {
+  vim.api.nvim_create_autocmd({ "WinNew", "WinClosed", "BufWinEnter", "WinResized", "VimResized", "TermClose", "DiagnosticChanged" }, {
     group = group,
     callback = refresh,
   })
+  -- The Source Control badge: recount when files are saved or nvim regains
+  -- focus, and on a slow timer for changes made elsewhere (e.g. by Claude),
+  -- which also keeps the clock current.
+  vim.api.nvim_create_autocmd({ "BufWritePost", "FocusGained", "DirChanged" }, {
+    group = group,
+    callback = function()
+      if M.enabled then
+        M.count_changes()
+      end
+    end,
+  })
+  vim.api.nvim_create_autocmd("User", { group = group, pattern = "LazyCheck", callback = refresh })
+  local timer = assert(vim.uv.new_timer())
+  timer:start(5000, 5000, vim.schedule_wrap(function()
+    if M.enabled and win() then
+      M.count_changes()
+      M.render()
+    end
+  end))
   vim.api.nvim_create_autocmd("TabEnter", {
     group = group,
     callback = function()
@@ -437,6 +540,7 @@ function M.setup()
     vim.defer_fn(function()
       M.tab = vim.fn.tabpagenr()
       M.open()
+      M.count_changes()
     end, 100)
   end
   if #vim.api.nvim_list_uis() > 0 then
