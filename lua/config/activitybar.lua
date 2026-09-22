@@ -38,13 +38,30 @@ local function close_sidebars()
   return cwd or LazyVim.root()
 end
 
+-- A window focus can go back to: a plain split, not the bar, a float, or the
+-- empty frame window a snacks sidebar sits in.
+---@param w integer
+local function usable(w)
+  if not vim.api.nvim_win_is_valid(w) or vim.api.nvim_win_get_config(w).relative ~= "" then
+    return false
+  end
+  local ft = vim.bo[vim.api.nvim_win_get_buf(w)].filetype
+  return ft ~= FT and ft ~= "snacks_layout_box"
+end
+
 -- Hand focus back to an editor window, so commands that act on "the current
 -- project" (LazyVim.root) see a real buffer rather than the bar.
 local function leave_bar()
-  if vim.bo.filetype == FT then
-    vim.cmd("wincmd p")
-    if vim.bo.filetype == FT then
-      vim.cmd("wincmd l")
+  if vim.bo.filetype ~= FT then
+    return
+  end
+  local prev = vim.fn.win_getid(vim.fn.winnr("#"))
+  if prev ~= 0 and usable(prev) then
+    return vim.api.nvim_set_current_win(prev)
+  end
+  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if usable(w) and vim.bo[vim.api.nvim_win_get_buf(w)].buftype == "" then
+      return vim.api.nvim_set_current_win(w)
     end
   end
 end
@@ -63,8 +80,16 @@ local function terminal_visible(match)
   return false
 end
 
-local function feed(keys)
-  vim.api.nvim_feedkeys(vim.keycode(keys), "m", false)
+-- Run the function behind a normal-mode mapping defined elsewhere. Calling it
+-- rather than feeding the keys matters when focus lands in a terminal, where
+-- fed keys would be typed into the program running there.
+local function run_map(lhs)
+  local m = vim.fn.maparg(lhs, "n", false, true)
+  if m.callback then
+    m.callback()
+  elseif m.rhs then
+    vim.api.nvim_feedkeys(vim.keycode(m.rhs), m.noremap == 1 and "n" or "m", false)
+  end
 end
 
 ---@class activitybar.Item
@@ -131,7 +156,7 @@ M.items = {
     end,
     run = function()
       leave_bar()
-      feed("<leader>ap") -- lua/plugins/copilot-cli.lua
+      run_map("<leader>ap") -- lua/plugins/copilot-cli.lua
     end,
   },
   {
@@ -142,7 +167,7 @@ M.items = {
     end,
     run = function()
       leave_bar()
-      feed("<A-t>") -- lua/plugins/terminal.lua
+      run_map("<A-t>") -- lua/plugins/terminal.lua
     end,
   },
   {
@@ -225,6 +250,8 @@ function M.activate()
   local item = item_at_cursor()
   if item then
     item.run()
+    -- closing a panel leaves nothing new to focus; don't stay in the bar
+    leave_bar()
     vim.defer_fn(M.refresh, 50)
   end
 end
@@ -253,6 +280,14 @@ local function create_buf()
   map("<LeftRelease>", M.activate, "Open panel")
   map("<CR>", M.activate, "Open panel")
   map("l", M.activate, "Open panel")
+  -- nothing to scroll or select here: without these the wheel shifts the
+  -- icons off their rows and a drag starts Visual mode
+  for _, lhs in ipairs({
+    "<LeftDrag>", "<2-LeftMouse>", "<3-LeftMouse>", "<4-LeftMouse>",
+    "<ScrollWheelUp>", "<ScrollWheelDown>", "<ScrollWheelLeft>", "<ScrollWheelRight>",
+  }) do
+    vim.keymap.set({ "n", "v" }, lhs, "<Nop>", { buffer = buf })
+  end
   map("j", function() step(1) end, "Next icon")
   map("k", function() step(-1) end, "Previous icon")
   vim.api.nvim_create_autocmd("CursorMoved", {
@@ -295,6 +330,8 @@ function M.open()
   local w = vim.api.nvim_open_win(buf, false, { split = "left", win = -1, width = WIDTH })
   local wo = vim.wo[w]
   wo.winfixwidth = true
+  wo.winfixbuf = true -- keep :e, <C-o>, buffer switches from loading files into the bar
+  wo.scrolloff = 0
   wo.number = false
   wo.relativenumber = false
   wo.signcolumn = "no"
@@ -370,12 +407,9 @@ function M.setup()
     vim.schedule(function()
       pending = false
       if not win() then
-        -- a new tab gets its own bar; a bar closed with :q / <C-w>o stays closed
-        if vim.fn.tabpagenr() ~= M.tab then
-          M.tab = vim.fn.tabpagenr()
-          M.open()
-        end
-        return
+        -- closed by :q, <C-w>o, a session load, or a new tab without one:
+        -- bring it back. Only <leader>uA (M.close) turns it off.
+        return M.open()
       end
       M.pin()
       M.render()
@@ -386,12 +420,20 @@ function M.setup()
     group = group,
     callback = refresh,
   })
-  vim.api.nvim_create_autocmd("TabEnter", {
+  vim.api.nvim_create_autocmd("TabEnter", { group = group, callback = refresh })
+  -- the wheel over an unfocused window scrolls it without the buffer's maps
+  vim.api.nvim_create_autocmd("WinScrolled", {
     group = group,
-    callback = function()
-      M.tab = nil
-      refresh()
-    end,
+    callback = vim.schedule_wrap(function()
+      -- scheduled: a fast wheel queues several scrolls, and resetting after
+      -- the first one lets the rest through unseen
+      local w = win()
+      if w and vim.fn.line("w0", w) ~= 1 then
+        vim.api.nvim_win_call(w, function()
+          vim.fn.winrestview({ topline = 1 })
+        end)
+      end
+    end),
   })
   vim.api.nvim_create_autocmd("ColorScheme", { group = group, callback = highlights })
   -- Don't let the bar keep nvim open: when the last editor window goes, it goes.
@@ -435,7 +477,6 @@ function M.setup()
   -- `nvim <dir>` opens, so wait until they have settled.
   local function start()
     vim.defer_fn(function()
-      M.tab = vim.fn.tabpagenr()
       M.open()
     end, 100)
   end
