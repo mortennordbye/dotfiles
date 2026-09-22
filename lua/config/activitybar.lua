@@ -51,18 +51,23 @@ end
 
 -- Hand focus back to an editor window, so commands that act on "the current
 -- project" (LazyVim.root) see a real buffer rather than the bar.
-local function leave_bar()
+---@param no_term? boolean skip terminals: entering one switches it to terminal
+---   mode, and a picker opened from there starts in normal mode, not insert
+local function leave_bar(no_term)
   if vim.bo.filetype ~= FT then
     return
   end
+  local function ok(w)
+    return usable(w) and not (no_term and vim.bo[vim.api.nvim_win_get_buf(w)].buftype == "terminal")
+  end
   local prev = vim.fn.win_getid(vim.fn.winnr("#"))
-  if prev ~= 0 and usable(prev) then
+  if prev ~= 0 and ok(prev) then
     return vim.api.nvim_set_current_win(prev)
   end
   -- prefer a file window, then anything else (dashboard, a terminal)
   local fallback
   for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if usable(w) then
+    if ok(w) then
       if vim.bo[vim.api.nvim_win_get_buf(w)].buftype == "" then
         return vim.api.nvim_set_current_win(w)
       end
@@ -127,7 +132,7 @@ M.items = {
     icon = "",
     name = "Search",
     run = function()
-      leave_bar()
+      leave_bar(true)
       Snacks.picker.grep({ cwd = LazyVim.root() })
     end,
   },
@@ -371,7 +376,12 @@ local function create_buf()
   vim.api.nvim_create_autocmd({ "BufEnter", "WinEnter" }, {
     buffer = buf,
     callback = function()
-      vim.cmd("stopinsert")
+      -- only when actually inserting: stopinsert takes effect once the
+      -- current key is done, so an unneeded one would also knock the panel
+      -- the click opens (the grep picker) out of insert mode
+      if vim.fn.mode():find("^[iRt]") then
+        vim.cmd("stopinsert")
+      end
       if not guicursor then
         guicursor = vim.o.guicursor
         vim.o.guicursor = "a:ActivityBarCursor"
