@@ -44,7 +44,8 @@ return {
           diagnostics_open = true, -- same for LSP diagnostics
           follow_file = true, -- reveal the buffer you jump to
 
-          -- Source Control section under the tree; see lua/config/explorer_changes.lua
+          -- Opened with `scm = true` this is the Source Control panel instead of the
+          -- tree (activity bar button); see lua/config/explorer_changes.lua
           finder = function(opts, ctx)
             return require("config.explorer_changes").finder(opts, ctx)
           end,

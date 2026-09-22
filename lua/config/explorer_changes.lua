@@ -1,11 +1,7 @@
--- A "Source Control" section at the bottom of the explorer, under the tree.
+-- The Source Control panel, opened from the activity bar
+-- (lua/config/activitybar.lua). It is the explorer picker with `scm = true`,
+-- which swaps the tree for rows laid out like VSCode's Source Control view:
 --
--- Snacks can't stack two pickers in one sidebar, so instead of a second panel
--- this appends extra rows to the explorer's own list, laid out like VSCode's
--- Source Control view:
---
---   ─────────────────────────────
---   Source Control
 --   + s stage  ⊸ gc commit  ↑ gp push     (key hints, with icons)
 --   ─────────────────────────────
 --   󰊢 repo   main ↑1 (3)
@@ -169,8 +165,15 @@ function M.finder(opts, ctx)
   if not ctx.filter:is_empty() then
     return tree
   end
+  -- The explorer itself shows just the tree. The same picker opened with
+  -- `scm = true` (the activity bar's Source Control button) shows just the
+  -- Source Control rows; it still runs the tree finder, unseen, because that
+  -- is what asks git for the statuses read back below.
+  if not opts.scm then
+    return tree
+  end
   return function(cb)
-    tree(cb)
+    tree(function() end)
     local cwd = ctx.filter.cwd
     local entries = changed(cwd)
 
@@ -215,13 +218,11 @@ function M.finder(opts, ctx)
         end
       end
     end
-    if #rows == 0 then
-      return
-    end
-    cb({ text = "", section = "", rule = true })
-    cb({ text = "", section = "Source Control" })
     cb({ text = "", section = "", keys_hint = true })
     cb({ text = "", section = "", rule = true })
+    if #rows == 0 then
+      cb({ text = "", section = "No changes" })
+    end
     for _, row in ipairs(rows) do
       cb(row)
     end

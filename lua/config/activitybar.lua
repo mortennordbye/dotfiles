@@ -14,22 +14,28 @@ local M = {}
 local WIDTH = 5 -- LazyVim sets winminwidth=5; anything narrower gets widened back
 local FT = "activitybar"
 
----@param source string?
----@param title string?
-local function picker(source, title)
-  for _, p in ipairs(Snacks.picker.get({ source = source })) do
-    if not title or p.opts.title == title then
+-- The explorer picker, either as the file tree or (`scm`) as Source Control.
+---@param scm boolean
+local function sidebar(scm)
+  for _, p in ipairs(Snacks.picker.get({ source = "explorer" })) do
+    if (p.opts.scm == true) == scm then
       return p
     end
   end
 end
 
+-- Close whichever sidebar is open and return the folder it was showing, so
+-- the one replacing it opens on the same project.
+---@return string
 local function close_sidebars()
+  local cwd
   for _, p in ipairs(Snacks.picker.get()) do
     if p.opts.source == "explorer" or p.opts.title == "Changes" then
+      cwd = cwd or p:cwd()
       p:close()
     end
   end
+  return cwd or LazyVim.root()
 end
 
 -- Hand focus back to an editor window, so commands that act on "the current
@@ -73,13 +79,13 @@ M.items = {
   {
     icon = "",
     name = "Explorer",
-    active = function() return picker("explorer") ~= nil end,
+    active = function() return sidebar(false) ~= nil end,
     run = function()
-      local open = picker("explorer")
-      close_sidebars()
+      local open = sidebar(false)
+      local cwd = close_sidebars()
       if not open then
         leave_bar()
-        Snacks.explorer({ cwd = LazyVim.root() })
+        Snacks.explorer({ cwd = cwd })
       end
     end,
   },
@@ -94,13 +100,14 @@ M.items = {
   {
     icon = "",
     name = "Source Control",
-    active = function() return picker(nil, "Changes") ~= nil end,
+    active = function() return sidebar(true) ~= nil end,
     run = function()
-      local open = picker(nil, "Changes")
-      close_sidebars()
+      local open = sidebar(true)
+      local cwd = close_sidebars()
       if not open then
         leave_bar()
-        require("config.changes").open(LazyVim.root())
+        -- lua/config/explorer_changes.lua
+        Snacks.explorer({ cwd = cwd, scm = true, title = "Source Control", follow_file = false })
       end
     end,
   },
