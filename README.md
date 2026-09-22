@@ -8,8 +8,9 @@ Refer to the [documentation](https://lazyvim.github.io/installation) to get star
 ### Keybinding cheatsheet
 
 Built in: `<leader>h`, or the keyboard icon at the bottom of the activity bar. The content
-is `lua/config/cheatsheet_data.lua`; `lua/config/cheatsheet.lua` shows it as a picker with
-each row's section in the preview.
+is `lua/config/cheatsheet_data.lua`; `lua/config/cheatsheet.lua` lays it out like the old
+HTML page (a card per section, in as many columns as fit), with `s` for a fuzzy search
+across every row.
 
 It is written by hand, not generated from the keymaps, so it drifts silently. When adding,
 removing or rebinding keys in `lua/config/keymaps.lua` or `lua/plugins/*.lua`, update the
