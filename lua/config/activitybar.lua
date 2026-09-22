@@ -280,7 +280,7 @@ function M.render()
     if not (ok and type(n) == "number" and n > 0) then
       return
     end
-    local label = n > 99 and "99+" or (" " .. n .. " ")
+    local label = n > 99 and "99+" or tostring(n)
     local col = WIDTH - vim.api.nvim_strwidth(label)
     text[row] = string.rep(" ", col) .. label
     badge_rows[row] = item
@@ -288,10 +288,12 @@ function M.render()
   end
   for _, item in ipairs(top) do
     add(item)
-  end
-  text[#text + 1] = ""
-  for row, item in pairs(map) do
-    badge(item, row + 1)
+    if item.badge then
+      -- its own row under the icon, plus the usual gap before the next one,
+      -- so the count can't be read as belonging to the icon below
+      text[#text + 1] = ""
+      badge(item, #text)
+    end
   end
   -- push the bottom group down to the window's last rows
   local height = vim.api.nvim_win_get_height(w)
@@ -321,10 +323,11 @@ function M.activate()
   local item = item_at_cursor()
   if item then
     item.run()
-    -- closing a panel leaves nothing new to focus; don't stay in the bar
-    leave_bar()
     vim.defer_fn(M.refresh, 50)
   end
+  -- closing a panel, or a click between icons, leaves nothing new to focus;
+  -- don't stay in the bar
+  leave_bar()
 end
 
 -- j/k hop between icons rather than over the blank rows.
@@ -390,9 +393,25 @@ local function create_buf()
       vim.schedule(function() vim.cmd("stopinsert") end)
     end,
   })
+  -- nothing to select here, however Visual mode got started
+  vim.api.nvim_create_autocmd("ModeChanged", {
+    pattern = "*:[vV\22]*",
+    callback = function()
+      if vim.api.nvim_get_current_buf() == buf then
+        vim.api.nvim_feedkeys(vim.keycode("<Esc>"), "n", false)
+      end
+    end,
+  })
+  for _, lhs in ipairs({ "v", "V", "<C-v>" }) do
+    vim.keymap.set("n", lhs, "<Nop>", { buffer = buf })
+  end
   vim.api.nvim_create_autocmd("CursorMoved", {
     buffer = buf,
     callback = function()
+      -- stay in column 0, so the view can never be pushed sideways
+      if vim.fn.col(".") ~= 1 then
+        vim.api.nvim_win_set_cursor(0, { vim.fn.line("."), 0 })
+      end
       local item = item_at_cursor()
       vim.api.nvim_echo({ { item and item.name or "" } }, false, {})
     end,
@@ -432,6 +451,7 @@ function M.open()
   wo.winfixwidth = true
   wo.winfixbuf = true -- keep :e, <C-o>, buffer switches from loading files into the bar
   wo.scrolloff = 0
+  wo.sidescrolloff = 0 -- LazyVim's 8 scrolled the bar sideways, out of view
   wo.number = false
   wo.relativenumber = false
   wo.signcolumn = "no"
@@ -549,9 +569,12 @@ function M.setup()
       -- scheduled: a fast wheel queues several scrolls, and resetting after
       -- the first one lets the rest through unseen
       local w = win()
-      if w and vim.fn.line("w0", w) ~= 1 then
+      if w then
         vim.api.nvim_win_call(w, function()
-          vim.fn.winrestview({ topline = 1 })
+          local view = vim.fn.winsaveview()
+          if view.topline ~= 1 or view.leftcol ~= 0 then
+            vim.fn.winrestview({ topline = 1, leftcol = 0 })
+          end
         end)
       end
     end),
