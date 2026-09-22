@@ -59,10 +59,18 @@ local function leave_bar()
   if prev ~= 0 and usable(prev) then
     return vim.api.nvim_set_current_win(prev)
   end
+  -- prefer a file window, then anything else (dashboard, a terminal)
+  local fallback
   for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if usable(w) and vim.bo[vim.api.nvim_win_get_buf(w)].buftype == "" then
-      return vim.api.nvim_set_current_win(w)
+    if usable(w) then
+      if vim.bo[vim.api.nvim_win_get_buf(w)].buftype == "" then
+        return vim.api.nvim_set_current_win(w)
+      end
+      fallback = fallback or w
     end
+  end
+  if fallback then
+    vim.api.nvim_set_current_win(fallback)
   end
 end
 
@@ -97,6 +105,7 @@ end
 ---@field name string
 ---@field run fun()
 ---@field active? fun(): boolean
+---@field badge? fun(): integer? count drawn at the icon's lower right, like VSCode
 ---@field bottom? boolean
 
 ---@type activitybar.Item[]
@@ -126,6 +135,7 @@ M.items = {
     icon = "",
     name = "Source Control",
     active = function() return sidebar(true) ~= nil end,
+    badge = function() return M.changes end,
     run = function()
       local open = sidebar(true)
       local cwd = close_sidebars()
@@ -178,9 +188,48 @@ M.items = {
   },
 }
 
+-- Changed files across the project's repos, for the Source Control badge.
+-- Counted in the background; the badge shows the last answer.
+M.changes = nil ---@type integer?
+local counting = false
+function M.count_changes()
+  if counting then
+    return
+  end
+  local p = sidebar(false) or sidebar(true)
+  local cwd = p and p:cwd() or LazyVim.root()
+  local root = Snacks.git.get_root(cwd)
+  local repos = root and { root } or require("config.explorer_git").nested_repos(cwd)
+  local total, left = 0, #repos
+  local function done()
+    counting = false
+    total = #repos > 0 and total or nil
+    if M.changes ~= total then
+      M.changes = total
+      M.render()
+    end
+  end
+  counting = true
+  if left == 0 then
+    return done()
+  end
+  for _, repo in ipairs(repos) do
+    vim.system({ "git", "--no-optional-locks", "status", "--porcelain", "-unormal" }, { cwd = repo }, function(res)
+      if res.code == 0 then
+        total = total + #vim.split(vim.trim(res.stdout or ""), "\n", { trimempty = true })
+      end
+      left = left - 1
+      if left == 0 then
+        vim.schedule(done)
+      end
+    end)
+  end
+end
+
 local ns = vim.api.nvim_create_namespace(FT)
 local buf ---@type integer?
-local lines = {} ---@type table<integer, activitybar.Item>
+local lines = {} ---@type table<integer, activitybar.Item> icon rows
+local badges = {} ---@type table<integer, activitybar.Item> badge rows, clickable too
 M.enabled = false
 
 ---@return integer?
@@ -205,16 +254,44 @@ function M.render()
     table.insert(item.bottom and bottom or top, item)
   end
 
-  local text, map = {}, {}
+  local text, map, marks, badge_rows = {}, {}, {}, {}
   local function add(item)
     text[#text + 1] = ""
     -- the trailing spaces give the icon room to be drawn two cells wide
     -- (ghostty/config maps these codepoints to a full-size icon font)
     text[#text + 1] = "  " .. item.icon .. "  "
     map[#text] = item
+    local ok, on = pcall(item.active or function() return false end)
+    marks[#marks + 1] = {
+      #text - 1,
+      0,
+      {
+        end_col = #text[#text],
+        hl_group = ok and on and "ActivityBarActive" or "ActivityBarIcon",
+        virt_text = ok and on and { { "▎", "ActivityBarIndicator" } } or nil,
+        virt_text_pos = "overlay",
+      },
+    }
+  end
+  -- A badge goes on the spacer row under its icon, right-aligned so the pill
+  -- sits at the icon's lower-right corner the way VSCode draws it.
+  local function badge(item, row)
+    local ok, n = pcall(item.badge or function() end)
+    if not (ok and type(n) == "number" and n > 0) then
+      return
+    end
+    local label = n > 99 and "99+" or (" " .. n .. " ")
+    local col = WIDTH - vim.api.nvim_strwidth(label)
+    text[row] = string.rep(" ", col) .. label
+    badge_rows[row] = item
+    marks[#marks + 1] = { row - 1, col, { end_col = #text[row], hl_group = "ActivityBarBadge" } }
   end
   for _, item in ipairs(top) do
     add(item)
+  end
+  text[#text + 1] = ""
+  for row, item in pairs(map) do
+    badge(item, row + 1)
   end
   -- push the bottom group down to the window's last rows
   local height = vim.api.nvim_win_get_height(w)
@@ -224,26 +301,20 @@ function M.render()
   for _, item in ipairs(bottom) do
     add(item)
   end
-  lines = map
+  lines, badges = map, badge_rows
 
   vim.bo[buf].modifiable = true
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, text)
   vim.bo[buf].modifiable = false
   vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
-  for lnum, item in pairs(map) do
-    local ok, on = pcall(item.active or function() return false end)
-    on = ok and on
-    vim.api.nvim_buf_set_extmark(buf, ns, lnum - 1, 0, {
-      end_col = #text[lnum],
-      hl_group = on and "ActivityBarActive" or "ActivityBarIcon",
-      virt_text = on and { { "▎", "ActivityBarIndicator" } } or nil,
-      virt_text_pos = "overlay",
-    })
+  for _, m in ipairs(marks) do
+    vim.api.nvim_buf_set_extmark(buf, ns, m[1], m[2], m[3])
   end
 end
 
 local function item_at_cursor()
-  return lines[vim.api.nvim_win_get_cursor(0)[1]]
+  local row = vim.api.nvim_win_get_cursor(0)[1]
+  return lines[row] or badges[row]
 end
 
 function M.activate()
@@ -290,6 +361,35 @@ local function create_buf()
   end
   map("j", function() step(1) end, "Next icon")
   map("k", function() step(-1) end, "Previous icon")
+  -- No cursor in the bar. It sat on an icon, where the terminal redraws the
+  -- two-cell glyph as one cell and the icon visibly jumps; and arriving from
+  -- a terminal could leave it in insert mode, showing a thin line.
+  local guicursor ---@type string?
+  vim.api.nvim_create_autocmd({ "BufEnter", "WinEnter" }, {
+    buffer = buf,
+    callback = function()
+      vim.cmd("stopinsert")
+      if not guicursor then
+        guicursor = vim.o.guicursor
+        vim.o.guicursor = "a:ActivityBarCursor"
+      end
+    end,
+  })
+  vim.api.nvim_create_autocmd({ "BufLeave", "WinLeave" }, {
+    buffer = buf,
+    callback = function()
+      if guicursor then
+        vim.o.guicursor = guicursor
+        guicursor = nil
+      end
+    end,
+  })
+  vim.api.nvim_create_autocmd("InsertEnter", {
+    buffer = buf,
+    callback = function()
+      vim.schedule(function() vim.cmd("stopinsert") end)
+    end,
+  })
   vim.api.nvim_create_autocmd("CursorMoved", {
     buffer = buf,
     callback = function()
@@ -376,6 +476,8 @@ local function blend(a, b, t)
 end
 
 local function highlights()
+  -- blend=100 makes nvim hide the terminal cursor while it uses this group
+  vim.api.nvim_set_hl(0, "ActivityBarCursor", { blend = 100, nocombine = true })
   local sidebar = vim.fn.hlexists("NormalSB") == 1 and "NormalSB" or "NormalFloat"
   vim.api.nvim_set_hl(0, "ActivityBar", { link = sidebar, default = true })
   local normal = vim.api.nvim_get_hl(0, { name = "Normal", link = false })
@@ -388,7 +490,9 @@ local function highlights()
     vim.api.nvim_set_hl(0, "ActivityBarIcon", { fg = blend(fg, bg, 0.75), default = true })
     vim.api.nvim_set_hl(0, "ActivityBarActive", { fg = accent or fg, bold = true, default = true })
     vim.api.nvim_set_hl(0, "ActivityBarIndicator", { fg = accent or fg, default = true })
+    vim.api.nvim_set_hl(0, "ActivityBarBadge", { fg = bg, bg = accent or fg, bold = true, default = true })
   else
+    vim.api.nvim_set_hl(0, "ActivityBarBadge", { link = "PmenuSel", default = true })
     vim.api.nvim_set_hl(0, "ActivityBarIcon", { link = "Normal", default = true })
     vim.api.nvim_set_hl(0, "ActivityBarActive", { link = "Title", default = true })
     vim.api.nvim_set_hl(0, "ActivityBarIndicator", { link = "Special", default = true })
@@ -421,6 +525,23 @@ function M.setup()
     callback = refresh,
   })
   vim.api.nvim_create_autocmd("TabEnter", { group = group, callback = refresh })
+  -- The Source Control badge: recount when files are saved, nvim regains
+  -- focus or the folder changes, and on a slow timer for changes made
+  -- elsewhere (e.g. by Claude).
+  vim.api.nvim_create_autocmd({ "BufWritePost", "FocusGained", "DirChanged" }, {
+    group = group,
+    callback = function()
+      if M.enabled then
+        M.count_changes()
+      end
+    end,
+  })
+  local timer = assert(vim.uv.new_timer())
+  timer:start(5000, 5000, vim.schedule_wrap(function()
+    if M.enabled and win() then
+      M.count_changes()
+    end
+  end))
   -- the wheel over an unfocused window scrolls it without the buffer's maps
   vim.api.nvim_create_autocmd("WinScrolled", {
     group = group,
@@ -478,6 +599,7 @@ function M.setup()
   local function start()
     vim.defer_fn(function()
       M.open()
+      M.count_changes()
     end, 100)
   end
   if #vim.api.nvim_list_uis() > 0 then
