@@ -1,6 +1,6 @@
 -- Terminal window behaviour (snacks.nvim owns the terminal that claudecode.nvim
 -- runs Claude in, via the lazyvim.plugins.extras.ai.claudecode extra).
--- Keys are also documented by hand in a cheatsheet outside this repo -- see README.md.
+-- Keys are also documented by hand in lua/config/cheatsheet_data.lua -- see README.md.
 -- Fast terminal toggle: <A-t>.
 --
 -- LazyVim's stock toggle is <C-/>, which on a Norwegian layout means

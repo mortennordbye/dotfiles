@@ -186,6 +186,15 @@ M.items = {
     end,
   },
   {
+    icon = "",
+    name = "Cheatsheet",
+    bottom = true,
+    run = function()
+      leave_bar(true)
+      require("config.cheatsheet").open()
+    end,
+  },
+  {
     icon = "",
     name = "Plugins",
     bottom = true,

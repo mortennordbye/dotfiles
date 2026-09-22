@@ -1,5 +1,5 @@
 -- Find and replace from the grep picker, like VSCode's search panel.
--- Keys are also documented by hand in a cheatsheet outside this repo -- see README.md.
+-- Keys are also documented by hand in lua/config/cheatsheet_data.lua -- see README.md.
 --
 -- <A-r> in any grep picker (<leader>/, <leader>sg, the activity bar's Search
 -- icon) closes it and opens grug-far (LazyVim's find-and-replace panel, also

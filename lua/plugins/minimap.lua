@@ -1,6 +1,6 @@
 -- VSCode-style minimap: a zoomed-out outline of the file on the right edge of
 -- each editor window, so you can see how long the file is and where you are.
--- Keys are also documented by hand in a cheatsheet outside this repo -- see README.md.
+-- Keys are also documented by hand in lua/config/cheatsheet_data.lua -- see README.md.
 --
 -- layout = "float" attaches one minimap to each editor window rather than one
 -- split per tab, so it follows splits and never lands on top of the Claude or

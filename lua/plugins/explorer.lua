@@ -1,5 +1,5 @@
 -- File explorer (snacks.nvim picker, LazyVim's default since it replaced neo-tree).
--- Keys are also documented by hand in a cheatsheet outside this repo -- see README.md.
+-- Keys are also documented by hand in lua/config/cheatsheet_data.lua -- see README.md.
 return {
   "folke/snacks.nvim",
   init = function()

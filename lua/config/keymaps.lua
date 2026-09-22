@@ -1,7 +1,7 @@
 -- Keymaps are automatically loaded on the VeryLazy event
 -- Default keymaps that are always set: https://github.com/LazyVim/LazyVim/blob/main/lua/lazyvim/config/keymaps.lua
 -- Add any additional keymaps here
--- Keys are also documented by hand in a cheatsheet outside this repo -- see README.md.
+-- Keys are also documented by hand in lua/config/cheatsheet_data.lua -- see README.md.
 
 -- Simple, no-prefix window splitting (avoids <C-w> and the awkward | key).
 -- Move between windows with Ctrl+h/j/k/l (LazyVim default).
@@ -38,3 +38,6 @@ map("n", "<leader>bR", "<cmd>edit!<cr>", { desc = "Force reload buffer (discard 
 
 -- Show / hide the VSCode-style activity bar (lua/config/activitybar.lua).
 map("n", "<leader>uA", function() require("config.activitybar").toggle() end, { desc = "Toggle Activity Bar" })
+
+-- Keybinding cheatsheet (lua/config/cheatsheet.lua; content in cheatsheet_data.lua).
+map("n", "<leader>h", function() require("config.cheatsheet").open() end, { desc = "Cheatsheet" })
