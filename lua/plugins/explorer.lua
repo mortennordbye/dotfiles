@@ -59,6 +59,46 @@ return {
               end,
               desc = "Stage / unstage",
             },
+            scm_click = {
+              action = function(picker)
+                if picker.opts.scm then
+                  require("config.explorer_changes").click(picker)
+                end
+              end,
+              desc = "Row buttons (stage / unstage / discard)",
+            },
+            scm_stage_add = {
+              action = function(picker, item)
+                require("config.explorer_changes").stage(picker, item)
+              end,
+              desc = "Stage",
+            },
+            scm_unstage = {
+              action = function(picker, item)
+                require("config.explorer_changes").unstage(picker, item)
+              end,
+              desc = "Unstage",
+            },
+            -- Discard in Source Control; in the tree these keys keep their
+            -- usual jobs (<Del> deletes, <BS> goes up a folder)
+            scm_discard_del = {
+              action = function(picker, item)
+                if picker.opts.scm then
+                  return require("config.explorer_changes").discard(picker, item)
+                end
+                return picker:action("explorer_del")
+              end,
+              desc = "Discard changes / delete",
+            },
+            scm_discard_bs = {
+              action = function(picker, item)
+                if picker.opts.scm then
+                  return require("config.explorer_changes").discard(picker, item)
+                end
+                return picker:action("explorer_up")
+              end,
+              desc = "Discard changes / up a folder",
+            },
             scm_commit = {
               action = function(picker, item)
                 require("config.explorer_changes").commit(picker, item)
@@ -86,6 +126,14 @@ return {
             list = {
               keys = {
                 ["s"] = "scm_stage",
+                ["+"] = "scm_stage_add",
+                -- the <LeftMouse> before it has already focused the list and
+                -- moved the cursor, so this runs even when clicking in from
+                -- the editor (same trick as the activity bar)
+                ["<LeftRelease>"] = "scm_click",
+                ["-"] = "scm_unstage",
+                ["<Del>"] = "scm_discard_del",
+                ["<BS>"] = "scm_discard_bs",
                 ["gc"] = "scm_commit",
                 ["gp"] = "scm_push",
                 -- swap to the changed-files-only view; see lua/config/changes.lua

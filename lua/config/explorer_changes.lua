@@ -2,19 +2,23 @@
 -- (lua/config/activitybar.lua). It is the explorer picker with `scm = true`,
 -- which swaps the tree for rows laid out like VSCode's Source Control view:
 --
---   + s stage  ⊸ gc commit  ↑ gp push     (key hints, with icons)
+--   + + - stage/unstage  ↺ ⌫ discard   (key hints, with icons)
+--   ⊸ gc commit  ↑ gp push
 --   ─────────────────────────────
 --   󰊢 repo   main ↑1 (3)
---     Staged (1)
---       file.lua  some/folder
---     Changes (2)
---       ...
+--     Staged (1)                     −
+--       file.lua  some/folder      − M
+--     Changes (2)                  ↺ +
+--       ...                      ↺ + M   (clickable row buttons)
 --
 -- One repo row per repository with changes, so a folder that holds several
 -- repos (see lua/config/explorer_git.lua) gets one group each.
 --
 -- Keys on these rows (wired in lua/plugins/explorer.lua):
 --   s   stage / unstage the file, or everything under a group or repo row
+--   +   stage, -  unstage (same scope as s, one direction only)
+--   ⌫   discard the unstaged changes (asks first; untracked files go to trash);
+--       Del does the same
 --   gc  commit the repo under the cursor (opens a message box)
 --   gp  push it; the repo row shows ↑N while there are commits to push, and
 --       "↑N publish" for a branch that has never been pushed
@@ -158,6 +162,64 @@ local function ahead(repo, picker)
   return old
 end
 
+--- The explorer only re-reads git status when .git/index changes, so a file
+--- created or edited outside of git (a shell, Claude, another editor) would
+--- not show up until the panel is reopened. While the panel is open each repo
+--- gets a recursive watch of its own; any change inside it (other than git's
+--- internals, bar the index and HEAD) re-reads the status, a moment later so
+--- a burst of writes costs one refresh.
+local watches = {} ---@type table<string, {handle: uv.uv_fs_event_t, picker: snacks.Picker}>
+local refresh_timer = assert(vim.uv.new_timer())
+
+local function unwatch(repo)
+  local w = watches[repo]
+  if w and not w.handle:is_closing() then
+    w.handle:close()
+  end
+  watches[repo] = nil
+end
+
+---@param list string[]
+---@param picker snacks.Picker
+local function watch(list, picker)
+  local keep = {}
+  for _, repo in ipairs(list) do
+    keep[repo] = true
+    local w = watches[repo]
+    if w then
+      w.picker = picker
+    else
+      local handle = assert(vim.uv.new_fs_event())
+      local ok = handle:start(repo, { recursive = true }, function(_, file)
+        file = file or ""
+        local git_file = file:match("^%.git/(.*)$") or (file == ".git" and "")
+        if git_file and git_file ~= "index" and git_file ~= "HEAD" then
+          return
+        end
+        refresh_timer:start(300, 0, vim.schedule_wrap(function()
+          local p = watches[repo] and watches[repo].picker
+          if not p or p.closed then
+            return unwatch(repo)
+          end
+          require("snacks.explorer.tree"):refresh(repo)
+          require("snacks.explorer.git").refresh(repo)
+          require("snacks.explorer.actions").update(p, { refresh = true, target = false })
+        end))
+      end)
+      if ok then
+        watches[repo] = { handle = handle, picker = picker }
+      elseif not handle:is_closing() then
+        handle:close()
+      end
+    end
+  end
+  for repo in pairs(watches) do
+    if not keep[repo] then
+      unwatch(repo)
+    end
+  end
+end
+
 ---@type snacks.picker.finder
 function M.finder(opts, ctx)
   local tree = require("snacks.picker.source.explorer").explorer(opts, ctx)
@@ -176,6 +238,7 @@ function M.finder(opts, ctx)
     tree(function() end)
     local cwd = ctx.filter.cwd
     local entries = changed(cwd)
+    watch(repos(cwd), ctx.picker)
 
     -- Build every repo's rows first: a repo is listed when it has changes or
     -- unpushed commits, and the header only appears when something is listed.
@@ -218,7 +281,15 @@ function M.finder(opts, ctx)
         end
       end
     end
-    cb({ text = "", section = "", keys_hint = true })
+    -- two rows: all four don't fit the panel's width on one
+    cb({ text = "", section = "", keys_hint = {
+      { "\u{f0415}", "+ -", "stage/unstage" }, -- plus
+      { "\u{f054c}", "⌫", "discard" }, -- undo
+    } })
+    cb({ text = "", section = "", keys_hint = {
+      { "\u{f0718}", "gc", "commit" }, -- source-commit
+      { "\u{f005d}", "gp", "push" }, -- arrow-up
+    } })
     cb({ text = "", section = "", rule = true })
     if #rows == 0 then
       cb({ text = "", section = "No changes" })
@@ -226,6 +297,90 @@ function M.finder(opts, ctx)
     for _, row in ipairs(rows) do
       cb(row)
     end
+  end
+end
+
+--- Row buttons, like the icons VSCode shows on a hovered row: discard and
+--- stage on Changes rows, unstage on Staged rows (files and the group
+--- headers). Drawn right-aligned before the status letter; M.click() finds
+--- them again from the mouse position.
+local BUTTONS = {
+  discard = "\u{f054c}", -- undo
+  stage = "\u{f0415}", -- plus
+  unstage = "\u{f0374}", -- minus
+}
+
+---@param item snacks.picker.Item
+---@return string[]
+local function buttons(item)
+  local scm = item.scm
+  if not scm or not (scm.path or item.group) then
+    return {}
+  end
+  return scm.staged and { "unstage" } or { "discard", "stage" }
+end
+
+--- Put the row's buttons in front of the right-aligned status marker (or on
+--- their own when there is none), and remember the chunks for M.click().
+---@param ret snacks.picker.Highlight[]
+---@param item snacks.picker.Item
+local function add_buttons(ret, item)
+  local names = buttons(item)
+  if #names == 0 then
+    return
+  end
+  -- virt_text chunks must be plain {text, hl} (an extra field makes the
+  -- extmark invalid and nothing on the right is drawn), so which chunk is
+  -- which button is kept alongside, in item.virt
+  local chunks, virt = {}, {}
+  for _, name in ipairs(names) do
+    chunks[#chunks + 1] = { BUTTONS[name] .. " ", "SnacksPickerSpecial" }
+    virt[#virt + 1] = { chunks[#chunks][1], name }
+  end
+  local right
+  for _, h in ipairs(ret) do
+    if h.virt_text_pos == "right_align" then
+      right = h
+    end
+  end
+  if right then
+    for _, c in ipairs(right.virt_text) do
+      chunks[#chunks + 1] = c
+      virt[#virt + 1] = { c[1] }
+    end
+    right.virt_text = chunks
+  else
+    ret[#ret + 1] = { col = 0, virt_text = chunks, virt_text_pos = "right_align", hl_mode = "combine" }
+  end
+  item.virt = virt
+end
+
+--- Mouse release on the list: run the button under the pointer, if any.
+---@param picker snacks.Picker
+function M.click(picker)
+  local m = vim.fn.getmousepos()
+  local win = picker.list.win.win
+  if m.winid ~= win or m.line == 0 then
+    return
+  end
+  local item = picker.list:get(picker.list:row2idx(m.line))
+  if not (item and item.virt) then
+    return
+  end
+  local info = vim.fn.getwininfo(win)[1]
+  local width = info.width - info.textoff
+  local total = 0
+  for _, c in ipairs(item.virt) do
+    total = total + vim.api.nvim_strwidth(c[1])
+  end
+  local col = m.wincol - info.textoff -- 1-based, within the text area
+  local start = width - total + 1
+  for _, c in ipairs(item.virt) do
+    local w = vim.api.nvim_strwidth(c[1])
+    if c[2] and col >= start and col < start + w then
+      return M[c[2]](picker, item)
+    end
+    start = start + w
   end
 end
 
@@ -250,22 +405,25 @@ function M.format(item, picker)
   elseif item.keys_hint then
     -- what the keys do, on their own line under the header
     local ret = {}
-    for _, k in ipairs({
-      { "\u{f0415}", "s", "stage" }, -- plus
-      { "\u{f0718}", "gc", "commit" }, -- source-commit
-      { "\u{f005d}", "gp", "push" }, -- arrow-up
-    }) do
+    for _, k in ipairs(item.keys_hint) do
       ret[#ret + 1] = { (#ret == 0 and "" or "  ") .. k[1] .. " ", "SnacksPickerComment" }
       ret[#ret + 1] = { k[2], "SnacksPickerSpecial" }
       ret[#ret + 1] = { " " .. k[3], "SnacksPickerComment" }
     end
     return ret
   elseif item.group then
-    return { { "  " }, { item.section, "SnacksPickerSpecial" } }
+    local ret = { { "  " }, { item.section, "SnacksPickerSpecial" } }
+    add_buttons(ret, item)
+    return ret
   elseif item.section then
     return { { item.section, "SnacksPickerTitle" } }
   end
   local ret = Snacks.picker.format.file(item, picker)
+  add_buttons(ret, item)
+  local marker = 4 -- right-aligned marker + gap, and the buttons before it
+  for _, name in ipairs(buttons(item)) do
+    marker = marker + vim.api.nvim_strwidth(BUTTONS[name] .. " ")
+  end
   if item.indent then
     table.insert(ret, 1, { item.indent })
   end
@@ -283,12 +441,12 @@ function M.format(item, picker)
       end
     end
     if idx then
-      local room = vim.api.nvim_win_get_width(picker.list.win.win) - used - 1 - 4 -- pad, marker + gap
+      local room = vim.api.nvim_win_get_width(picker.list.win.win) - used - 1 - marker -- pad
       local text = item.comment
       if room < 6 then
         table.remove(ret, idx)
         -- no room for the folder; shorten the name itself if it still overflows
-        local over = used + 4 - vim.api.nvim_win_get_width(picker.list.win.win)
+        local over = used + marker - vim.api.nvim_win_get_width(picker.list.win.win)
         local name = vim.fs.basename(item.file)
         for i, h in ipairs(ret) do
           if over > 0 and h[1] == name then
@@ -366,16 +524,92 @@ local function repo_for(picker, item)
   return #found == 1 and found[1] or nil
 end
 
+---@param picker snacks.Picker
+---@param scm {repo: string, path?: string}
+---@param stage boolean
+local function set_staged(picker, scm, stage)
+  local args = stage and { "add", "-A", "--" } or { "reset", "-q", "--" }
+  args[#args + 1] = scm.path or "."
+  git(args, scm.repo, function()
+    refresh(picker, scm.repo)
+  end)
+end
+
 --- `s`: stage what's under the cursor, or unstage it if it is already staged.
 function M.toggle_stage(picker, item)
+  local scm = item and item.scm
+  if scm then
+    set_staged(picker, scm, not scm.staged)
+  end
+end
+
+--- `+`: stage what's under the cursor (the file, a group, or the whole repo).
+function M.stage(picker, item)
+  if item and item.scm then
+    set_staged(picker, item.scm, true)
+  end
+end
+
+--- `-`: unstage what's under the cursor.
+function M.unstage(picker, item)
+  if item and item.scm then
+    set_staged(picker, item.scm, false)
+  end
+end
+
+--- `<Del>`: discard working-tree changes, like VSCode's "Discard Changes".
+--- On a file row that file; on the Changes group or the repo row every
+--- unstaged change in the repo. Staged changes are left alone (unstage them
+--- with - first). Tracked files go back to their staged/committed state;
+--- untracked ones are moved to the trash, so they can still be recovered.
+function M.discard(picker, item)
   local scm = item and item.scm
   if not scm then
     return
   end
-  local args = scm.staged and { "reset", "-q", "--" } or { "add", "-A", "--" }
-  args[#args + 1] = scm.path or "."
-  git(args, scm.repo, function()
-    refresh(picker, scm.repo)
+  if scm.staged and (scm.path or item.group) then
+    vim.notify("Staged changes are kept; unstage with - first", vim.log.levels.WARN, { title = "git discard" })
+    return
+  end
+
+  local tracked, untracked = {}, {}
+  for _, it in ipairs(picker:items()) do
+    local s = it.scm
+    if s and s.path and not s.staged and s.repo == scm.repo and (not scm.path or s.path == scm.path) then
+      if it.status == "??" then
+        untracked[#untracked + 1] = s.path
+      else
+        tracked[#tracked + 1] = s.path
+      end
+    end
+  end
+  local n = #tracked + #untracked
+  if n == 0 then
+    return
+  end
+  local what = n == 1 and vim.fn.fnamemodify((tracked[1] or untracked[1]), ":~:.") or (n .. " files")
+  local prompt = (#untracked == n and "Delete untracked " or "Discard changes to ") .. what .. "?"
+
+  Snacks.picker.util.confirm(prompt, function()
+    local Actions = require("snacks.explorer.actions")
+    for _, path in ipairs(untracked) do
+      local ok, err = Actions.trash(path)
+      if ok then
+        Snacks.bufdelete({ file = path, force = true })
+      else
+        Snacks.notify.error("Failed to delete `" .. path .. "`:\n" .. err)
+      end
+    end
+    local function done()
+      -- reload open buffers of the restored files
+      vim.cmd.checktime()
+      refresh(picker, scm.repo)
+    end
+    if #tracked > 0 then
+      git(vim.list_extend({ "restore", "--" }, tracked), scm.repo, done)
+    else
+      done()
+    end
   end)
 end
 
