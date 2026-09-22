@@ -15,6 +15,26 @@
 -- snacks' double-<esc> mapping is turned off (it stole Claude's interrupt).
 return {
   "coder/claudecode.nvim",
+  init = function()
+    -- `nvim .` (or any single folder argument) is "start working in this
+    -- project", so open the Claude panel alongside the explorer straight away.
+    -- A file argument or a bare `nvim` (start screen) is left alone.
+    vim.api.nvim_create_autocmd("VimEnter", {
+      group = vim.api.nvim_create_augroup("claudecode_on_dir", { clear = true }),
+      once = true,
+      callback = function()
+        if vim.fn.argc() ~= 1 or vim.fn.isdirectory(vim.fn.argv(0)) == 0 then
+          return
+        end
+        -- after the explorer has claimed the left side
+        vim.schedule(function()
+          -- the extra lazy-loads on its keys, so the command isn't defined yet
+          require("lazy").load({ plugins = { "claudecode.nvim" } })
+          vim.cmd("ClaudeCode")
+        end)
+      end,
+    })
+  end,
   opts = {
     terminal = {
       split_side = "right",
