@@ -7,7 +7,7 @@ font-family = "JetBrainsMono Nerd Font Mono"
 # The nvim activity bar's icons (nvim/lua/config/activitybar.lua) come from
 # the non-Mono patch, whose icons are full size; the Mono one shrinks every
 # icon into a single cell. Only these codepoints, so the rest is unchanged.
-font-codepoint-map = U+EAF0,U+EA6D,U+EA68,U+EC1E,U+EA85,U+EAE6,U+F06A9,U+EA87,U+EA6C=JetBrainsMono Nerd Font
+font-codepoint-map = U+EAF0,U+EA6D,U+EA68,U+EC1E,U+EA85,U+EAE6,U+F06A9=JetBrainsMono Nerd Font
 font-size = 14
 # Slightly taller lines read nicer in editors
 adjust-cell-height = 8%
