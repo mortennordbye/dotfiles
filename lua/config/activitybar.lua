@@ -302,6 +302,7 @@ function M.open()
   wo.foldcolumn = "0"
   wo.cursorline = false
   wo.wrap = false
+  wo.list = false -- LazyVim turns it on; it would draw the icons' trailing spaces as "-"
   wo.winbar = ""
   wo.fillchars = "eob: "
   wo.winhighlight = "Normal:ActivityBar,NormalNC:ActivityBar"
