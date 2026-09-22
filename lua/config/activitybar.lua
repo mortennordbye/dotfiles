@@ -200,7 +200,42 @@ M.items = {
     bottom = true,
     run = function() require("lazy").show() end,
   },
+  {
+    icon = "\u{eb51}",
+    name = "Settings",
+    bottom = true,
+    run = function()
+      leave_bar(true)
+      M.settings()
+    end,
+  },
 }
+
+-- The gear's menu, like VSCode's Manage button: the places settings live.
+M.settings_menu = {
+  { "Config files", function() Snacks.picker.files({ cwd = vim.fn.stdpath("config") }) end },
+  { "Search config (grep)", function() Snacks.picker.grep({ cwd = vim.fn.stdpath("config") }) end },
+  { "LazyVim extras (feature bundles)", function() vim.cmd("LazyExtras") end },
+  { "Language servers & tools (Mason)", function() vim.cmd("Mason") end },
+  { "Colour scheme", function() Snacks.picker.colorschemes() end },
+  { "Toggle options (wrap, spell, diagnostics, ...)", function()
+    require("which-key").show({ keys = "<leader>u", loop = true })
+  end },
+  { "Keymaps", function() Snacks.picker.keymaps() end },
+  { "Cheatsheet", function() require("config.cheatsheet").open() end },
+  { "Health check", function() vim.cmd("checkhealth") end },
+}
+
+function M.settings()
+  vim.ui.select(M.settings_menu, {
+    prompt = "Settings",
+    format_item = function(item) return item[1] end,
+  }, function(item)
+    if item then
+      item[2]()
+    end
+  end)
+end
 
 -- Changed files across the project's repos, for the Source Control badge.
 -- Counted in the background; the badge shows the last answer.
