@@ -14,10 +14,32 @@ adjust-cell-height = 8%
 
 # --- Theme ---
 # Ghostty ships many themes. Browse with:  ghostty +list-themes
-# Must match the Neovim colorscheme variant or the terminal background and the
-# editor background are subtly different shades. LazyVim runs tokyonight in the
-# "moon" style, so plain `tokyonight` (= storm) was a near-miss.
+# Must match the Neovim colours or the terminal background and the editor
+# background are subtly different shades. Neovim runs a custom "balanced"
+# tokyonight style (nvim/lua/plugins/colorscheme.lua), so the TokyoNight Moon
+# theme is kept only as a base and every colour is overridden to that palette.
 theme = TokyoNight Moon
+background = #1b1e24
+foreground = #dce1e8
+cursor-color = #dce1e8
+selection-background = #3a5a8c
+selection-foreground = #dce1e8
+palette = 0=#121418
+palette = 1=#ff8b92
+palette = 2=#a8d98a
+palette = 3=#e8c77d
+palette = 4=#7cb7ff
+palette = 5=#c4a7ff
+palette = 6=#8fd8f0
+palette = 7=#aab2bf
+palette = 8=#4b5263
+palette = 9=#ffa3a9
+palette = 10=#bde5a4
+palette = 11=#f0d59a
+palette = 12=#9cc9ff
+palette = 13=#d4bdff
+palette = 14=#aee3f5
+palette = 15=#dce1e8
 
 # Render in Display P3 rather than sRGB. On a modern Mac panel this is the
 # single biggest colour improvement available: the tokyonight blues and
@@ -29,7 +51,7 @@ window-colorspace = display-p3
 #
 # `background-opacity` below 1 applies ONLY to the default background, because
 # `background-opacity-cells` defaults to false. Neovim paints explicit
-# #222436 cells, which stay opaque, while the window padding stays translucent
+# background cells, which stay opaque, while the window padding stays translucent
 # and picks up the desktop wallpaper -- so the editor looked like it sat on a
 # slightly different colour to its own border. Opaque removes the seam.
 #
