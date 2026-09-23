@@ -56,6 +56,46 @@ return {
       end,
     })
 
+    -- Terminals (Claude, Copilot, the shell): name what is running instead of
+    -- the buffer's term://…/bin/claude path, and drop the cursor position and
+    -- scroll percentage, which only describe the scrollback.
+    local function is_term()
+      return vim.bo.buftype == "terminal"
+    end
+    local function not_term()
+      return not is_term()
+    end
+    for _, section in ipairs({ opts.sections.lualine_c, opts.sections.lualine_y }) do
+      for i, c in ipairs(section) do
+        local comp = type(c) == "table" and c or { c }
+        -- the path, filetype and diagnostics in c; progress and location in y
+        if section == opts.sections.lualine_c or comp[1] == "progress" or comp[1] == "location" then
+          local cond = comp.cond
+          comp.cond = function()
+            return not_term() and (not cond or cond())
+          end
+          section[i] = comp
+        end
+      end
+    end
+    table.insert(opts.sections.lualine_c, {
+      function()
+        local t = vim.b.snacks_terminal
+        local cmd = t and (type(t.cmd) == "table" and table.concat(t.cmd, " ") or t.cmd)
+        -- term://{cwd}//{pid}:{cmd}
+        cmd = cmd or vim.api.nvim_buf_get_name(0):match("^term://.-//%d+:(.*)$") or ""
+        local prog = vim.fs.basename(vim.split(cmd, " ")[1] or "")
+        if prog == "claude" then
+          return "Claude Code"
+        elseif prog == "copilot" then
+          return "Copilot CLI"
+        end
+        return "Terminal" .. (prog ~= "" and (" (" .. prog .. ")") or "")
+      end,
+      icon = "\u{f120}", -- terminal
+      cond = is_term,
+    })
+
     table.insert(opts.sections.lualine_c, 1, {
       function()
         return vim.fn.fnamemodify(vim.uv.cwd() or "", ":~")

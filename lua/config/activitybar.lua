@@ -322,15 +322,17 @@ function M.render()
       },
     }
   end
-  -- A badge goes on the spacer row under its icon, right-aligned so the pill
-  -- sits at the icon's lower-right corner the way VSCode draws it.
+  -- A badge goes on the spacer row under its icon, ending under the icon's
+  -- right half (the icon is drawn over columns 2-3) so the pill sits at its
+  -- lower-right corner the way VSCode draws it. Ending in the last column
+  -- instead pushed it against the window separator, where it got clipped.
   local function badge(item, row)
     local ok, n = pcall(item.badge or function() end)
     if not (ok and type(n) == "number" and n > 0) then
       return
     end
     local label = n > 99 and "99+" or tostring(n)
-    local col = WIDTH - vim.api.nvim_strwidth(label)
+    local col = math.max(0, WIDTH - 1 - vim.api.nvim_strwidth(label))
     text[row] = string.rep(" ", col) .. label
     badge_rows[row] = item
     marks[#marks + 1] = { row - 1, col, { end_col = #text[row], hl_group = "ActivityBarBadge" } }
@@ -344,9 +346,11 @@ function M.render()
       badge(item, #text)
     end
   end
-  -- push the bottom group down to the window's last rows
+  -- push the bottom group down to the window's last rows, keeping one blank
+  -- row under it: the icon font draws taller than a cell, and on the very
+  -- last row the statusline cut the glyph in half
   local height = vim.api.nvim_win_get_height(w)
-  while #text < height - #bottom * 2 do
+  while #text < height - #bottom * 2 - 1 do
     text[#text + 1] = ""
   end
   for _, item in ipairs(bottom) do
