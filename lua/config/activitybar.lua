@@ -93,6 +93,16 @@ local function terminal_visible(match)
   return false
 end
 
+---@param ft string
+local function filetype_visible(ft)
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if vim.bo[vim.api.nvim_win_get_buf(win)].filetype == ft then
+      return true
+    end
+  end
+  return false
+end
+
 -- Run the function behind a normal-mode mapping defined elsewhere. Calling it
 -- rather than feeding the keys matters when focus lands in a terminal, where
 -- fed keys would be typed into the program running there.
@@ -149,6 +159,51 @@ M.items = {
         -- lua/config/explorer_changes.lua
         Snacks.explorer({ cwd = cwd, scm = true, title = "Source Control", follow_file = false })
       end
+    end,
+  },
+  {
+    icon = "\u{eb91}", -- codicon debug-alt
+    name = "Run and Debug",
+    -- lit while a debug session runs; the dap.core extra opens its panels then
+    active = function()
+      return package.loaded["dap"] ~= nil and require("dap").session() ~= nil
+    end,
+    run = function()
+      leave_bar(true)
+      if package.loaded["dap"] and require("dap").session() then
+        require("dapui").toggle()
+      else
+        -- asks which launch configuration to use, like VSCode's F5
+        require("dap").continue()
+      end
+    end,
+  },
+  {
+    icon = "\u{ea79}", -- codicon beaker
+    name = "Testing",
+    active = function()
+      return filetype_visible("neotest-summary")
+    end,
+    badge = function() return M.failed_tests end,
+    run = function()
+      leave_bar(true)
+      require("neotest").summary.toggle()
+    end,
+  },
+  {
+    icon = "\u{ea6c}", -- codicon warning
+    name = "Problems",
+    active = function()
+      return package.loaded["trouble"] ~= nil and require("trouble").is_open("diagnostics")
+    end,
+    -- errors only, like the red count in VSCode's status bar; warnings are
+    -- too often noise to be worth a badge
+    badge = function()
+      return vim.diagnostic.count(nil, { severity = vim.diagnostic.severity.ERROR })[vim.diagnostic.severity.ERROR]
+    end,
+    run = function()
+      leave_bar(true)
+      vim.cmd("Trouble diagnostics toggle")
     end,
   },
   {
@@ -236,6 +291,39 @@ function M.settings()
       item[2]()
     end
   end)
+end
+
+-- Failed tests, for the Testing badge. neotest reports only the tests each
+-- run touched, so keep every test's last status and count the failures.
+M.failed_tests = nil ---@type integer?
+local test_status = {} ---@type table<string, string>
+
+-- A neotest consumer, registered in lua/plugins/test.lua.
+---@param client neotest.Client
+function M.neotest_consumer(client)
+  client.listeners.results = function(adapter_id, results, partial)
+    if partial then
+      return
+    end
+    local tree = client:get_position(nil, { adapter = adapter_id })
+    for id, result in pairs(results) do
+      -- the file and any class holding a failed test are "failed" too;
+      -- count the tests themselves
+      local node = tree and tree:get_key(id)
+      if node and node:data().type == "test" then
+        test_status[id] = result.status
+      end
+    end
+    local failed = 0
+    for _, status in pairs(test_status) do
+      failed = failed + (status == "failed" and 1 or 0)
+    end
+    M.failed_tests = failed
+    if M.refresh then
+      M.refresh()
+    end
+  end
+  return {}
 end
 
 -- Changed files across the project's repos, for the Source Control badge.
@@ -604,6 +692,8 @@ function M.setup()
     callback = refresh,
   })
   vim.api.nvim_create_autocmd("TabEnter", { group = group, callback = refresh })
+  -- the Problems badge; refresh() batches the bursts an LSP sends
+  vim.api.nvim_create_autocmd("DiagnosticChanged", { group = group, callback = refresh })
   -- The Source Control badge: recount when files are saved, nvim regains
   -- focus or the folder changes, and on a slow timer for changes made
   -- elsewhere (e.g. by Claude).
