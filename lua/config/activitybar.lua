@@ -224,6 +224,7 @@ M.settings_menu = {
   { "Keymaps", function() Snacks.picker.keymaps() end },
   { "Cheatsheet", function() require("config.cheatsheet").open() end },
   { "Health check", function() vim.cmd("checkhealth") end },
+  { "Restart Neovim (reload config)", function() run_map("<leader>qr") end }, -- lua/config/keymaps.lua
 }
 
 function M.settings()

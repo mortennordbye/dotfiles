@@ -41,3 +41,35 @@ map("n", "<leader>uA", function() require("config.activitybar").toggle() end, { 
 
 -- Keybinding cheatsheet (lua/config/cheatsheet.lua; content in cheatsheet_data.lua).
 map("n", "<leader>h", function() require("config.cheatsheet").open() end, { desc = "Cheatsheet" })
+
+-- Restart nvim (0.12's :restart) and come back to the same files and splits,
+-- e.g. after changing this config. Terminals don't survive a restart, so the
+-- Claude / Copilot panels close; reopen them and run `claude --continue`.
+-- Windows that can't be restored (terminals, pickers, the activity bar) are
+-- closed first, or the session would bring them back as empty splits.
+map("n", "<leader>qr", function()
+  local modified = vim.tbl_filter(function(b)
+    return vim.bo[b].modified and vim.bo[b].buftype == ""
+  end, vim.api.nvim_list_bufs())
+  if #modified > 0 then
+    local choice = vim.fn.confirm("Save changes before restarting?", "&Save all\n&Discard\n&Cancel", 1)
+    if choice == 1 then
+      vim.cmd("wall")
+    elseif choice ~= 2 then
+      return
+    end
+  end
+  require("config.activitybar").close()
+  for _, p in ipairs(Snacks.picker.get()) do
+    p:close()
+  end
+  for _, w in ipairs(vim.api.nvim_list_wins()) do
+    local b = vim.api.nvim_win_get_buf(w)
+    if vim.bo[b].buftype ~= "" or vim.api.nvim_win_get_config(w).relative ~= "" then
+      pcall(vim.api.nvim_win_close, w, true)
+    end
+  end
+  local session = vim.fn.stdpath("state") .. "/restart.vim"
+  vim.cmd("mksession! " .. vim.fn.fnameescape(session))
+  vim.cmd("restart +qall! silent! source " .. vim.fn.fnameescape(session))
+end, { desc = "Restart Neovim (keep open files)" })

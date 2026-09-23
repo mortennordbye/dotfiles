@@ -244,6 +244,7 @@ return {
     { "⌥↵", "New Ghostty window (current workspace)", kw = "new terminal window ghostty launch" },
     { "⌥b", "Firefox (new window)", kw = "browser firefox web launch" },
     { "⌥q", "Close window", kw = "close quit window kill" },
+    { "Space q r", "Restart Neovim, keeping open files and splits", note = "reloads the whole config; asks to save first. Terminals (Claude, Copilot) close: reopen and run claude --continue", custom = true, kw = "restart reload config refresh reboot neovim nvim source" },
     { "⌥h / ⌥s / ⌥w", "Layouts (tiles / v-accordion / h-accordion)", kw = "layout tiling accordion arrange" },
     { "⌥r", "Resize mode (h/j/k/l, Esc to exit)", kw = "resize mode bigger smaller window" },
     { "⌃1 … 0", "Switch workspace 1–10", kw = "workspace switch desktop space number" },
