@@ -190,7 +190,7 @@ function M.color()
     return nil
   end
   if m <= 2 then
-    return { fg = "#ff757f", gui = "bold" } -- tokyonight red
+    return { fg = "#ff8b92", gui = "bold" } -- palette red (lua/plugins/colorscheme.lua)
   elseif m <= 5 then
     return { fg = "#ff966c" } -- orange
   end
