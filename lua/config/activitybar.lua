@@ -122,6 +122,7 @@ end
 ---@field active? fun(): boolean
 ---@field badge? fun(): integer? count drawn at the icon's lower right, like VSCode
 ---@field bottom? boolean
+---@field extra? boolean hidden unless M.extras() is on (Space u X, or the gear menu)
 
 ---@type activitybar.Item[]
 M.items = {
@@ -164,6 +165,7 @@ M.items = {
   {
     icon = "\u{eb91}", -- codicon debug-alt
     name = "Run and Debug",
+    extra = true,
     -- lit while a debug session runs; the dap.core extra opens its panels then
     active = function()
       return package.loaded["dap"] ~= nil and require("dap").session() ~= nil
@@ -181,6 +183,7 @@ M.items = {
   {
     icon = "\u{ea79}", -- codicon beaker
     name = "Testing",
+    extra = true,
     active = function()
       return filetype_visible("neotest-summary")
     end,
@@ -193,6 +196,7 @@ M.items = {
   {
     icon = "\u{ea6c}", -- codicon warning
     name = "Problems",
+    extra = true,
     active = function()
       return package.loaded["trouble"] ~= nil and require("trouble").is_open("diagnostics")
     end,
@@ -266,6 +270,27 @@ M.items = {
   },
 }
 
+-- Run and Debug, Testing and Problems start hidden. The choice is kept in a
+-- file so it survives restarts.
+local extras_file = vim.fn.stdpath("state") .. "/activitybar-extras"
+local show_extras = vim.uv.fs_stat(extras_file) ~= nil
+
+---@return boolean
+function M.extras()
+  return show_extras
+end
+
+function M.toggle_extras()
+  show_extras = not show_extras
+  if show_extras then
+    vim.fn.writefile({}, extras_file)
+  else
+    vim.fn.delete(extras_file)
+  end
+  M.render()
+  vim.notify((show_extras and "Showing" or "Hiding") .. " Run and Debug, Testing and Problems", vim.log.levels.INFO, { title = "Activity bar" })
+end
+
 -- The gear's menu, like VSCode's Manage button: the places settings live.
 M.settings_menu = {
   { "Config files", function() Snacks.picker.files({ cwd = vim.fn.stdpath("config") }) end },
@@ -278,6 +303,7 @@ M.settings_menu = {
   end },
   { "Keymaps", function() Snacks.picker.keymaps() end },
   { "Cheatsheet", function() require("config.cheatsheet").open() end },
+  { "Show / hide Run and Debug, Testing, Problems icons", function() M.toggle_extras() end },
   { "Health check", function() vim.cmd("checkhealth") end },
   { "Restart Neovim (reload config)", function() run_map("<leader>qr") end }, -- lua/config/keymaps.lua
 }
@@ -389,7 +415,9 @@ function M.render()
   end
   local top, bottom = {}, {}
   for _, item in ipairs(M.items) do
-    table.insert(item.bottom and bottom or top, item)
+    if not item.extra or M.extras() then
+      table.insert(item.bottom and bottom or top, item)
+    end
   end
 
   local text, map, marks, badge_rows = {}, {}, {}, {}

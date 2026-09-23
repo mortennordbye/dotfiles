@@ -38,6 +38,7 @@ map("n", "<leader>bR", "<cmd>edit!<cr>", { desc = "Force reload buffer (discard 
 
 -- Show / hide the VSCode-style activity bar (lua/config/activitybar.lua).
 map("n", "<leader>uA", function() require("config.activitybar").toggle() end, { desc = "Toggle Activity Bar" })
+map("n", "<leader>uX", function() require("config.activitybar").toggle_extras() end, { desc = "Toggle Debug/Testing/Problems icons" })
 
 -- Keybinding cheatsheet (lua/config/cheatsheet.lua; content in cheatsheet_data.lua).
 map("n", "<leader>h", function() require("config.cheatsheet").open() end, { desc = "Cheatsheet" })
