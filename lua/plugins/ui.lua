@@ -36,6 +36,24 @@ return {
           },
         },
 
+        -- Recent files and projects: name first, then the folder it lives in,
+        -- dimmed, like VSCode's Open Recent. The stock format prints the full
+        -- path and, when it doesn't fit, shortens every folder to one letter
+        -- (~/D/O/s/d/a/l/u/main.bicep), which hides both the name and where
+        -- it is. Here only the folder is cut, from the left.
+        formats = {
+          file = function(item, ctx)
+            local path = vim.fn.fnamemodify(item.file, ":~")
+            local name = vim.fn.fnamemodify(path, ":t")
+            local dir = vim.fn.fnamemodify(path, ":h")
+            local room = (ctx.width or 60) - vim.api.nvim_strwidth(name) - 2
+            if vim.api.nvim_strwidth(dir) > room then
+              dir = room > 1 and "…" .. vim.fn.strcharpart(dir, vim.fn.strchars(dir) - room + 1) or ""
+            end
+            return { { name, hl = "file" }, { "  " .. dir, hl = "dir" } }
+          end,
+        },
+
         -- Single column. `pane = 2` needs roughly 2x the section width to
         -- render side by side; below that snacks silently stacks the panes,
         -- which is why the two-pane version came out as one long list.
@@ -48,6 +66,10 @@ return {
             icon = "\u{f1da} ", -- history
             title = "Recent Files",
             section = "recent_files",
+            -- oldfiles also remembers folders opened with `nvim <dir>`
+            filter = function(file)
+              return vim.fn.isdirectory(file) == 0
+            end,
             limit = 5,
             indent = 2,
             padding = 1,
