@@ -122,7 +122,7 @@ end
 ---@field active? fun(): boolean
 ---@field badge? fun(): integer? count drawn at the icon's lower right, like VSCode
 ---@field bottom? boolean
----@field extra? boolean hidden unless M.extras() is on (Space u X, or the gear menu)
+---@field optional? "on"|"off" can be hidden with Space u X (or the gear menu); the value is the default
 
 ---@type activitybar.Item[]
 M.items = {
@@ -165,7 +165,7 @@ M.items = {
   {
     icon = "\u{eb91}", -- codicon debug-alt
     name = "Run and Debug",
-    extra = true,
+    optional = "off",
     -- lit while a debug session runs; the dap.core extra opens its panels then
     active = function()
       return package.loaded["dap"] ~= nil and require("dap").session() ~= nil
@@ -183,7 +183,7 @@ M.items = {
   {
     icon = "\u{ea79}", -- codicon beaker
     name = "Testing",
-    extra = true,
+    optional = "off",
     active = function()
       return filetype_visible("neotest-summary")
     end,
@@ -196,7 +196,7 @@ M.items = {
   {
     icon = "\u{ea6c}", -- codicon warning
     name = "Problems",
-    extra = true,
+    optional = "off",
     active = function()
       return package.loaded["trouble"] ~= nil and require("trouble").is_open("diagnostics")
     end,
@@ -231,6 +231,18 @@ M.items = {
     run = function()
       leave_bar()
       run_map("<leader>ap") -- lua/plugins/copilot-cli.lua
+    end,
+  },
+  {
+    icon = "\u{eb44}", -- codicon rocket
+    name = "Antigravity CLI",
+    optional = "on",
+    active = function()
+      return terminal_visible(function(cmd) return cmd ~= nil and cmd:find("^agy") ~= nil end)
+    end,
+    run = function()
+      leave_bar()
+      run_map("<leader>ag") -- lua/plugins/antigravity-cli.lua
     end,
   },
   {
@@ -270,25 +282,45 @@ M.items = {
   },
 }
 
--- Run and Debug, Testing and Problems start hidden. The choice is kept in a
--- file so it survives restarts.
-local extras_file = vim.fn.stdpath("state") .. "/activitybar-extras"
-local show_extras = vim.uv.fs_stat(extras_file) ~= nil
+-- Optional icons (see activitybar.Item.optional). Which ones are shown is
+-- kept in a file so it survives restarts; icons not in it use their default.
+local shown_file = vim.fn.stdpath("state") .. "/activitybar.json"
+local shown ---@type table<string, boolean>
 
+---@param item activitybar.Item
 ---@return boolean
-function M.extras()
-  return show_extras
+function M.visible(item)
+  if not item.optional then
+    return true
+  end
+  if not shown then
+    local ok, data = pcall(function() return vim.json.decode(table.concat(vim.fn.readfile(shown_file), "\n")) end)
+    shown = ok and type(data) == "table" and data or {}
+  end
+  if shown[item.name] == nil then
+    return item.optional == "on"
+  end
+  return shown[item.name]
 end
 
-function M.toggle_extras()
-  show_extras = not show_extras
-  if show_extras then
-    vim.fn.writefile({}, extras_file)
-  else
-    vim.fn.delete(extras_file)
-  end
-  M.render()
-  vim.notify((show_extras and "Showing" or "Hiding") .. " Run and Debug, Testing and Problems", vim.log.levels.INFO, { title = "Activity bar" })
+-- Tick which optional icons to show. Picking one flips it and reopens the
+-- list, so several can be changed in a row; Esc closes it.
+function M.choose_icons()
+  local items = vim.tbl_filter(function(it) return it.optional ~= nil end, M.items)
+  vim.ui.select(items, {
+    prompt = "Activity bar icons",
+    format_item = function(it)
+      return (M.visible(it) and "[x] " or "[ ] ") .. it.name
+    end,
+  }, function(it)
+    if not it then
+      return
+    end
+    shown[it.name] = not M.visible(it)
+    pcall(vim.fn.writefile, { vim.json.encode(shown) }, shown_file)
+    M.render()
+    vim.schedule(M.choose_icons)
+  end)
 end
 
 -- The gear's menu, like VSCode's Manage button: the places settings live.
@@ -303,7 +335,7 @@ M.settings_menu = {
   end },
   { "Keymaps", function() Snacks.picker.keymaps() end },
   { "Cheatsheet", function() require("config.cheatsheet").open() end },
-  { "Show / hide Run and Debug, Testing, Problems icons", function() M.toggle_extras() end },
+  { "Choose activity bar icons (Antigravity, Debug, Testing, Problems)", function() M.choose_icons() end },
   { "Health check", function() vim.cmd("checkhealth") end },
   { "Restart Neovim (reload config)", function() run_map("<leader>qr") end }, -- lua/config/keymaps.lua
 }
@@ -415,7 +447,7 @@ function M.render()
   end
   local top, bottom = {}, {}
   for _, item in ipairs(M.items) do
-    if not item.extra or M.extras() then
+    if M.visible(item) then
       table.insert(item.bottom and bottom or top, item)
     end
   end

@@ -89,6 +89,8 @@ return {
           return "Claude Code"
         elseif prog == "copilot" then
           return "Copilot CLI"
+        elseif prog == "agy" then
+          return "Antigravity CLI"
         end
         return "Terminal" .. (prog ~= "" and (" (" .. prog .. ")") or "")
       end,
