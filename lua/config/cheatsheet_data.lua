@@ -111,6 +111,7 @@ return {
     { "mouse", "Run and Debug starts debugging (asks which configuration), or shows / hides the debugger panels while a session runs; Testing opens the test tree; Problems opens the list of every error and warning", note = "the pills: failed tests under Testing, errors under Problems", custom = true, kw = "activity bar debug dap run test neotest problems diagnostics errors trouble badge" },
     { "j / k then Enter", "In the bar (reach it with ⌃h): move between icons, open one", custom = true, kw = "activity bar keyboard navigate icons enter" },
     { "s / g c / g p", "In the Source Control panel: stage / unstage the row, commit, push", custom = true, kw = "source control panel stage unstage commit push git scm" },
+    { "Ctrl g", "In the Source Control commit box: have Copilot write the message", note = "like VSCode's sparkle button; replaces the box's text with a message from the staged diff (or every tracked change when nothing is staged). ~10s", custom = true, kw = "commit message generate copilot ai sparkle write source control box" },
     { "g l / g b / g m", "In the Source Control panel: pull, switch branch, all git actions (… menu)", note = "the repo row shows ↓N to pull and ↑N to push; click the branch name to switch, <C-a> in the branch picker creates one; the … menu has sync, fetch, create / rename / delete / merge branch and stash", custom = true, kw = "source control panel pull fetch sync branch checkout switch create new rename delete merge stash menu git scm" },
     { "+ / - / ⌫", "In the Source Control panel: stage, unstage, discard the row's changes", note = "or click the ↺ + − buttons on the right of each row, like VSCode; on a group or repo row it applies to all of it; discard asks first, untracked files go to the trash", custom = true, kw = "source control panel stage unstage discard revert restore delete plus minus buttons click mouse git scm" },
     { "gear (bottom)", "Settings menu: config files, search config, LazyVim extras, Mason, colour scheme, toggle options, keymaps, health check", custom = true, kw = "settings gear manage preferences config options extras mason colorscheme theme health" },
@@ -228,7 +229,7 @@ return {
     { "Space g b", "Blame current line", kw = "blame who wrote author line history" },
     { "] h / [ h", "Next / previous change (hunk)", kw = "hunk change next previous diff navigate" },
     { "Space g h s", "Stage hunk", kw = "stage hunk add partial" },
-    { "Space g m", "Generate commit msg from the staged diff", note = "pipes git diff --staged to claude -p; inserts into the commit buffer, or copies to clipboard elsewhere. ~14s", custom = true, kw = "commit message generate copilot ai write" },
+    { "Space g m", "Generate commit msg from the staged diff", note = "sends git diff --staged to copilot -p (gpt-5-mini); inserts into the commit buffer, or copies to clipboard elsewhere. ~10s", custom = true, kw = "commit message generate copilot ai write" },
   },
   {
     name = "Test",

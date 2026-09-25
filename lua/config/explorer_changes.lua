@@ -19,7 +19,8 @@
 --   +   stage, -  unstage (same scope as s, one direction only)
 --   ⌫   discard the unstaged changes (asks first; untracked files go to trash);
 --       Del does the same
---   gc  commit the repo under the cursor (opens a message box)
+--   gc  commit the repo under the cursor (opens a message box; <C-g> there
+--       has Copilot write the message)
 --   gp  push it; the repo row shows ↑N while there are commits to push, and
 --       "↑N publish" for a branch that has never been pushed
 --   gl  pull it; the repo row shows ↓N for commits to pull (as of the last
@@ -662,10 +663,13 @@ function M.discard(picker, item)
 end
 
 --- Floating, multi-line message box like VSCode's. Starts in insert mode;
---- <C-s> (or <CR> in normal mode) commits, <Esc> in normal mode or q cancels.
+--- <C-s> (or <CR> in normal mode) commits, <Esc> in normal mode or q cancels,
+--- <C-g> fills it with a message Copilot writes from `diff()` (VSCode's ✨).
 ---@param title string
 ---@param on_submit fun(msg: string)
-local function message_box(title, on_submit)
+---@param diff fun(): string the changes the commit will contain
+---@param cwd string the repo
+local function message_box(title, on_submit, diff, cwd)
   local function submit(win)
     local lines = vim.api.nvim_buf_get_lines(win.buf, 0, -1, false)
     local msg = vim.trim(table.concat(lines, "\n"))
@@ -675,6 +679,13 @@ local function message_box(title, on_submit)
       on_submit(msg)
     end
   end
+  local function generate(win)
+    require("config.commit_msg").generate(diff(), function(text)
+      if win:buf_valid() then
+        vim.api.nvim_buf_set_lines(win.buf, 0, -1, false, vim.split(text, "\n"))
+      end
+    end, cwd)
+  end
   Snacks.win({
     position = "float",
     width = 64,
@@ -682,7 +693,7 @@ local function message_box(title, on_submit)
     border = "rounded",
     title = " " .. title .. " ",
     title_pos = "center",
-    footer = " <C-s> commit   <Esc> then q cancel ",
+    footer = " <C-s> commit   <C-g> ✨ generate   <Esc> q cancel ",
     footer_pos = "center",
     bo = { filetype = "gitcommit" },
     enter = true,
@@ -690,6 +701,7 @@ local function message_box(title, on_submit)
     keys = {
       submit_i = { "<C-s>", submit, mode = { "n", "i" }, desc = "Commit" },
       submit_n = { "<CR>", submit, mode = "n", desc = "Commit" },
+      generate = { "<C-g>", generate, mode = { "n", "i" }, desc = "Generate message (Copilot)" },
       q = "close",
       ["<Esc>"] = "close",
     },
@@ -722,7 +734,11 @@ function M.commit(picker, item)
         )
         refresh(picker, repo)
       end, msg)
-    end)
+    end, function()
+      -- what the commit will contain: the index, or with -a every tracked change
+      local args = all and { "git", "diff", "HEAD" } or { "git", "diff", "--cached" }
+      return vim.system(args, { cwd = repo, text = true }):wait().stdout or ""
+    end, repo)
   end)
 end
 
