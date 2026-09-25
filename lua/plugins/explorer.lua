@@ -65,7 +65,7 @@ return {
                   require("config.explorer_changes").click(picker)
                 end
               end,
-              desc = "Row buttons (stage / unstage / discard)",
+              desc = "Row buttons (stage / unstage / discard / menu, branch name)",
             },
             scm_stage_add = {
               action = function(picker, item)
@@ -111,6 +111,24 @@ return {
               end,
               desc = "Push",
             },
+            scm_pull = {
+              action = function(picker, item)
+                require("config.explorer_changes").pull(picker, item)
+              end,
+              desc = "Pull",
+            },
+            scm_branch = {
+              action = function(picker, item)
+                require("config.explorer_changes").branch(picker, item)
+              end,
+              desc = "Switch branch",
+            },
+            scm_menu = {
+              action = function(picker, item)
+                require("config.explorer_changes").menu(picker, item)
+              end,
+              desc = "Git actions (pull, push, branches, stash...)",
+            },
           },
 
           layout = {
@@ -136,6 +154,9 @@ return {
                 ["<BS>"] = "scm_discard_bs",
                 ["gc"] = "scm_commit",
                 ["gp"] = "scm_push",
+                ["gl"] = "scm_pull",
+                ["gb"] = "scm_branch",
+                ["gm"] = "scm_menu",
                 -- swap to the changed-files-only view; see lua/config/changes.lua
                 ["C"] = {
                   function(picker)

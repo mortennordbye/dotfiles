@@ -5,7 +5,7 @@
 --   + + - stage/unstage  ↺ ⌫ discard   (key hints, with icons)
 --   ⊸ gc commit  ↑ gp push
 --   ─────────────────────────────
---   󰊢 repo   main ↑1 (3)
+--   󰊢 repo   main ↓2 ↑1 (3)          …
 --     Staged (1)                     −
 --       file.lua  some/folder      − M
 --     Changes (2)                  ↺ +
@@ -22,6 +22,12 @@
 --   gc  commit the repo under the cursor (opens a message box)
 --   gp  push it; the repo row shows ↑N while there are commits to push, and
 --       "↑N publish" for a branch that has never been pushed
+--   gl  pull it; the repo row shows ↓N for commits to pull (as of the last
+--       fetch, which the … menu does)
+--   gb  switch branch (also a click on the branch name); <C-a> in that picker
+--       creates one from the typed name
+--   gm  the … menu (also the … button on the repo row): pull, push, sync,
+--       fetch, create / rename / delete / merge branches, stash
 --
 -- File status comes from the explorer, which already asks git and stores the
 -- result on the tree nodes; this reads them back, and when git status
@@ -103,25 +109,27 @@ local function file_item(entry, repo, staged)
   }
 end
 
---- Commits on HEAD that aren't pushed yet. For a branch with an upstream
---- that is `@{upstream}..HEAD`; for one without (never pushed) it is the
+--- Commits on HEAD that aren't pushed yet, and commits on the upstream that
+--- aren't pulled yet (as of the last fetch). For a branch with an upstream
+--- that is `@{upstream}...HEAD`; for one without (never pushed) it is the
 --- commits no remote has, flagged `publish` so the row can say so. Repos with
 --- no remote at all report nothing: there is nowhere to push.
 ---
 --- The finder runs inside snacks' coroutine, where waiting on a process hangs,
 --- so this answers from a cache and refreshes it in the background (at most
 --- every few seconds), re-running the list only when the answer changed.
-local ahead_cache = {} ---@type table<string, {n?: integer, publish?: boolean, at: integer}>
+local ahead_cache = {} ---@type table<string, {n?: integer, behind?: integer, publish?: boolean, at: integer}>
 
 ---@param repo string
----@param cb fun(n?: integer, publish?: boolean)
+---@param cb fun(n?: integer, publish?: boolean, behind?: integer)
 local function count_ahead(repo, cb)
   local function run(args, on_exit)
     vim.system(vim.list_extend({ "git" }, args), { cwd = repo, text = true }, on_exit)
   end
-  run({ "rev-list", "--count", "@{upstream}..HEAD" }, function(res)
+  run({ "rev-list", "--left-right", "--count", "@{upstream}...HEAD" }, function(res)
     if res.code == 0 then
-      return cb(tonumber(vim.trim(res.stdout)))
+      local behind, n = res.stdout:match("(%d+)%s+(%d+)")
+      return cb(tonumber(n), nil, tonumber(behind))
     end
     run({ "remote" }, function(remotes)
       if vim.trim(remotes.stdout or "") == "" then
@@ -136,21 +144,21 @@ end
 
 ---@param repo string
 ---@param picker snacks.Picker
----@return {n?: integer, publish?: boolean}
+---@return {n?: integer, behind?: integer, publish?: boolean}
 local function ahead(repo, picker)
   local c = ahead_cache[repo]
   if c and os.time() - c.at < 5 then
     return c
   end
   local old = c or { at = 0 }
-  ahead_cache[repo] = { n = old.n, publish = old.publish, at = os.time() }
-  count_ahead(repo, function(n, publish)
+  ahead_cache[repo] = { n = old.n, behind = old.behind, publish = old.publish, at = os.time() }
+  count_ahead(repo, function(n, publish, behind)
     local entry = ahead_cache[repo]
     if not entry then
       return
     end
-    entry.n, entry.publish = n, publish
-    if n ~= old.n or publish ~= old.publish then
+    entry.n, entry.publish, entry.behind = n, publish, behind
+    if n ~= old.n or publish ~= old.publish or behind ~= old.behind then
       vim.schedule(function()
         if not picker.closed then
           picker.list:set_target()
@@ -240,15 +248,15 @@ function M.finder(opts, ctx)
     local entries = changed(cwd)
     watch(repos(cwd), ctx.picker)
 
-    -- Build every repo's rows first: a repo is listed when it has changes or
-    -- unpushed commits, and the header only appears when something is listed.
+    -- Every repo gets a row, clean ones too, like VSCode's Repositories list:
+    -- that row is where branches are switched and pulls start from.
     local rows = {}
     for _, repo in ipairs(repos(cwd)) do
       local mine = vim.tbl_filter(function(e)
         return e.path:find(repo .. "/", 1, true) == 1
       end, entries)
       local up = ahead(repo, ctx.picker)
-      if #mine > 0 or (up.n or 0) > 0 then
+      do
         local staged, unstaged = {}, {}
         for _, e in ipairs(mine) do
           staged[#staged + 1] = file_item(e, repo, true)
@@ -263,6 +271,7 @@ function M.finder(opts, ctx)
           detached = detached,
           count = #mine,
           ahead = up.n,
+          behind = up.behind,
           publish = up.publish,
           -- s on the repo row stages everything, or unstages once all is staged
           scm = { repo = repo, staged = #unstaged == 0 },
@@ -279,9 +288,12 @@ function M.finder(opts, ctx)
             vim.list_extend(rows, items)
           end
         end
+        if #mine == 0 then
+          rows[#rows + 1] = { text = "", section = "No changes", note = true }
+        end
       end
     end
-    -- two rows: all four don't fit the panel's width on one
+    -- two per row: more don't fit the panel's width
     cb({ text = "", section = "", keys_hint = {
       { "\u{f0415}", "+ -", "stage/unstage" }, -- plus
       { "\u{f054c}", "⌫", "discard" }, -- undo
@@ -290,9 +302,13 @@ function M.finder(opts, ctx)
       { "\u{f0718}", "gc", "commit" }, -- source-commit
       { "\u{f005d}", "gp", "push" }, -- arrow-up
     } })
+    cb({ text = "", section = "", keys_hint = {
+      { "\u{f062c}", "gb", "branch" }, -- source-branch
+      { "\u{f0045}", "gl", "pull" }, -- arrow-down
+    } })
     cb({ text = "", section = "", rule = true })
     if #rows == 0 then
-      cb({ text = "", section = "No changes" })
+      cb({ text = "", section = "No repository" })
     end
     for _, row in ipairs(rows) do
       cb(row)
@@ -302,18 +318,22 @@ end
 
 --- Row buttons, like the icons VSCode shows on a hovered row: discard and
 --- stage on Changes rows, unstage on Staged rows (files and the group
---- headers). Drawn right-aligned before the status letter; M.click() finds
---- them again from the mouse position.
+--- headers), and the … menu on repo rows. Drawn right-aligned before the
+--- status letter; M.click() finds them again from the mouse position.
 local BUTTONS = {
   discard = "\u{f054c}", -- undo
   stage = "\u{f0415}", -- plus
   unstage = "\u{f0374}", -- minus
+  menu = "\u{f01d8}", -- dots-horizontal
 }
 
 ---@param item snacks.picker.Item
 ---@return string[]
 local function buttons(item)
   local scm = item.scm
+  if item.repo_row then
+    return { "menu" }
+  end
   if not scm or not (scm.path or item.group) then
     return {}
   end
@@ -364,10 +384,27 @@ function M.click(picker)
     return
   end
   local item = picker.list:get(picker.list:row2idx(m.line))
-  if not (item and item.virt) then
+  if not item then
     return
   end
   local info = vim.fn.getwininfo(win)[1]
+  -- the branch name on a repo row opens the branch picker, like the branch
+  -- in VSCode's status bar; found in the drawn line, which the list prefixes
+  if item.repo_row and item.branch then
+    local line = vim.api.nvim_buf_get_lines(picker.list.win.buf, m.line - 1, m.line, false)[1] or ""
+    local label = "\u{e725} " .. item.branch
+    local at = line:find(label, 1, true)
+    if at then
+      local start = vim.fn.strdisplaywidth(line:sub(1, at - 1)) + 1
+      local col = m.wincol - info.textoff
+      if col >= start and col < start + vim.fn.strdisplaywidth(label) then
+        return M.branch(picker, item)
+      end
+    end
+  end
+  if not item.virt then
+    return
+  end
   local width = info.width - info.textoff
   local total = 0
   for _, c in ipairs(item.virt) do
@@ -397,11 +434,19 @@ function M.format(item, picker)
     if item.branch then
       ret[#ret + 1] = { "  \u{e725} " .. item.branch, item.detached and "SnacksPickerGitDetached" or "SnacksPickerGitBranch" }
     end
+    if (item.behind or 0) > 0 then
+      ret[#ret + 1] = { " \u{2193}" .. item.behind, "SnacksPickerGitStatusModified" }
+    end
     if (item.ahead or 0) > 0 then
       ret[#ret + 1] = { " \u{2191}" .. item.ahead .. (item.publish and " publish" or ""), "SnacksPickerGitStatusAdded" }
     end
-    ret[#ret + 1] = { " (" .. item.count .. ")", "SnacksPickerComment" }
+    if item.count > 0 then
+      ret[#ret + 1] = { " (" .. item.count .. ")", "SnacksPickerComment" }
+    end
+    add_buttons(ret, item)
     return ret
+  elseif item.note then
+    return { { "    " }, { item.section, "SnacksPickerComment" } }
   elseif item.keys_hint then
     -- what the keys do, on their own line under the header
     local ret = {}
@@ -484,6 +529,9 @@ end
 ---@param repo string
 local function refresh(picker, repo)
   ahead_cache[repo] = nil
+  if picker.closed then
+    return
+  end
   require("snacks.explorer.git").refresh(repo)
   require("snacks.explorer.actions").update(picker, { refresh = true })
 end
@@ -678,6 +726,18 @@ function M.commit(picker, item)
   end)
 end
 
+---@param picker snacks.Picker
+---@param item? snacks.picker.Item
+---@param title string
+---@return string?
+local function need_repo(picker, item, title)
+  local repo = repo_for(picker, item)
+  if not repo then
+    vim.notify("Put the cursor on a repo first", vim.log.levels.WARN, { title = title })
+  end
+  return repo
+end
+
 --- `gp`: push the repo under the cursor. A branch with no upstream yet is
 --- pushed to origin and set to track it, like VSCode's "Publish Branch".
 function M.push(picker, item)
@@ -695,6 +755,228 @@ function M.push(picker, item)
     local out = vim.split(vim.trim(res.stderr ~= "" and res.stderr or res.stdout or ""), "\n")
     vim.notify(name .. ": " .. out[#out], vim.log.levels.INFO, { title = "git push" })
     refresh(picker, repo)
+  end)
+end
+
+--- Last line git printed, stdout first (pull and merge report there), for
+--- the notification after a command.
+---@param res vim.SystemCompleted
+local function last_line(res)
+  local out = vim.trim(res.stdout ~= "" and res.stdout or res.stderr or "")
+  local lines = vim.split(out, "\n")
+  return lines[#lines]
+end
+
+--- `gl`: pull the repo under the cursor. Uses the repo's own pull settings
+--- (merge or rebase); git's error is shown if the working tree is in the way.
+---@param on_done? fun()
+function M.pull(picker, item, on_done)
+  local repo = need_repo(picker, item, "git pull")
+  if not repo then
+    return
+  end
+  local name = vim.fs.basename(repo)
+  vim.notify("Pulling " .. name .. "...", vim.log.levels.INFO, { title = "git pull" })
+  git({ "pull" }, repo, function(res)
+    vim.notify(name .. ": " .. last_line(res), vim.log.levels.INFO, { title = "git pull" })
+    vim.cmd.checktime()
+    refresh(picker, repo)
+    if on_done then
+      on_done()
+    end
+  end)
+end
+
+--- Pull, then push: VSCode's "Sync Changes".
+function M.sync(picker, item)
+  M.pull(picker, item, function()
+    M.push(picker, item)
+  end)
+end
+
+--- Fetch every remote and prune deleted branches; the repo row's ↓N then
+--- shows what a pull would bring in.
+function M.fetch(picker, item)
+  local repo = need_repo(picker, item, "git fetch")
+  if not repo then
+    return
+  end
+  local name = vim.fs.basename(repo)
+  git({ "fetch", "--all", "--prune" }, repo, function()
+    vim.notify("Fetched " .. name, vim.log.levels.INFO, { title = "git fetch" })
+    refresh(picker, repo)
+  end)
+end
+
+--- Branch picker for `repo`, local and remote branches, with `on_pick`
+--- run on the chosen one. Enter picks; <C-a> creates a branch from the
+--- typed text, <C-x> deletes the one under the cursor (snacks' own keys).
+---@param repo string
+---@param title string
+---@param on_pick fun(branch: string)
+local function pick_branch(repo, title, on_pick)
+  Snacks.picker.git_branches({
+    cwd = repo,
+    all = true,
+    title = title,
+    -- search the branch name only, not the commit message after it (every
+    -- "Merge branch 'origin/main'" would match "main" otherwise)
+    transform = function(it)
+      if it.branch then
+        it.text = it.branch:gsub("^remotes/", "")
+      end
+    end,
+    confirm = function(p, it)
+      p:close()
+      if it and it.branch then
+        on_pick(it.branch)
+      end
+    end,
+  })
+end
+
+--- Ask for a new branch name, then create it from `base` (HEAD when nil)
+--- and switch to it.
+---@param picker snacks.Picker
+---@param repo string
+---@param base? string
+local function new_branch(picker, repo, base)
+  Snacks.input.input({
+    prompt = base and ("New branch from " .. base) or "New branch name",
+  }, function(name)
+    name = vim.trim(name or "")
+    if name == "" then
+      return
+    end
+    local args = { "switch", "-c", name }
+    if base then
+      args[#args + 1] = base
+    end
+    git(args, repo, function()
+      vim.notify("Switched to new branch " .. name, vim.log.levels.INFO, { title = "git branch" })
+      vim.cmd.checktime()
+      refresh(picker, repo)
+    end)
+  end)
+end
+
+--- `gb`, or a click on the branch name: switch branch, like VSCode's
+--- "Checkout to...". A remote branch gets a local one tracking it.
+function M.branch(picker, item)
+  local repo = need_repo(picker, item, "git branch")
+  if not repo then
+    return
+  end
+  pick_branch(repo, "Switch branch (<C-a> new)", function(branch)
+    local remote = branch:match("^remotes/[^/]+/(.+)$")
+    local args = remote and { "switch", "--track", branch:sub(#"remotes/" + 1) } or { "switch", branch }
+    git(args, repo, function()
+      vim.notify("Switched to " .. (remote or branch), vim.log.levels.INFO, { title = "git branch" })
+      vim.cmd.checktime()
+      refresh(picker, repo)
+    end)
+  end)
+end
+
+--- Rename the current branch.
+---@param picker snacks.Picker
+---@param repo string
+local function rename_branch(picker, repo)
+  local current = branch(repo)
+  Snacks.input.input({ prompt = "Rename branch", default = current }, function(name)
+    name = vim.trim(name or "")
+    if name == "" or name == current then
+      return
+    end
+    git({ "branch", "-m", name }, repo, function()
+      refresh(picker, repo)
+    end)
+  end)
+end
+
+--- Delete a local branch, asking first. `-d` refuses unmerged branches;
+--- then it offers `-D`.
+---@param picker snacks.Picker
+---@param repo string
+local function delete_branch(picker, repo)
+  pick_branch(repo, "Delete branch", function(b)
+    if b:find("^remotes/") then
+      vim.notify("Pick a local branch", vim.log.levels.WARN, { title = "git branch" })
+      return
+    end
+    Snacks.picker.util.confirm("Delete branch " .. b .. "?", function()
+      vim.system({ "git", "branch", "-d", b }, { cwd = repo, text = true }, function(res)
+        vim.schedule(function()
+          if res.code == 0 then
+            vim.notify("Deleted " .. b, vim.log.levels.INFO, { title = "git branch" })
+            return refresh(picker, repo)
+          end
+          Snacks.picker.util.confirm(b .. " is not fully merged. Delete anyway?", function()
+            git({ "branch", "-D", b }, repo, function()
+              vim.notify("Deleted " .. b, vim.log.levels.INFO, { title = "git branch" })
+              refresh(picker, repo)
+            end)
+          end)
+        end)
+      end)
+    end)
+  end)
+end
+
+--- `gm`, or the … button on a repo row: every repo action in one list, like
+--- the … menu at the top of VSCode's Source Control view.
+function M.menu(picker, item)
+  local repo = need_repo(picker, item, "git")
+  if not repo then
+    return
+  end
+  local function simple(title, args)
+    return function()
+      git(args, repo, function(res)
+        vim.notify(last_line(res), vim.log.levels.INFO, { title = title })
+        vim.cmd.checktime()
+        refresh(picker, repo)
+      end)
+    end
+  end
+  local actions = {
+    { "\u{f0045} Pull", function() M.pull(picker, item) end },
+    { "\u{f005d} Push", function() M.push(picker, item) end },
+    { "\u{f04e6} Sync (pull, then push)", function() M.sync(picker, item) end },
+    { "\u{f0450} Fetch", function() M.fetch(picker, item) end },
+    { "\u{f0718} Commit", function() M.commit(picker, item) end },
+    { "\u{f062c} Switch branch...", function() M.branch(picker, item) end },
+    { "\u{f0415} Create branch...", function() new_branch(picker, repo) end },
+    {
+      "\u{f0415} Create branch from...",
+      function()
+        pick_branch(repo, "Create branch from", function(b)
+          new_branch(picker, repo, b)
+        end)
+      end,
+    },
+    { "\u{f03eb} Rename branch...", function() rename_branch(picker, repo) end },
+    { "\u{f01b4} Delete branch...", function() delete_branch(picker, repo) end },
+    {
+      "\u{f062d} Merge branch into current...",
+      function()
+        pick_branch(repo, "Merge into " .. (branch(repo) or "HEAD"), function(b)
+          simple("git merge", { "merge", b:gsub("^remotes/", ""), "--no-edit" })()
+        end)
+      end,
+    },
+    { "\u{f003c} Stash changes", simple("git stash", { "stash", "push", "--include-untracked" }) },
+    { "\u{f003c} Pop latest stash", simple("git stash", { "stash", "pop" }) },
+  }
+  vim.ui.select(actions, {
+    prompt = vim.fs.basename(repo) .. " (" .. (branch(repo) or "?") .. ")",
+    format_item = function(a)
+      return a[1]
+    end,
+  }, function(choice)
+    if choice then
+      choice[2]()
+    end
   end)
 end
 
