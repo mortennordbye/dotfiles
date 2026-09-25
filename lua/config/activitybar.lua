@@ -280,6 +280,18 @@ M.items = {
       M.settings()
     end,
   },
+  {
+    icon = "\u{ea76}", -- codicon close
+    name = "Quit Neovim",
+    bottom = true,
+    -- asks about unsaved files instead of refusing, like closing VSCode
+    run = function()
+      -- not from the bar: the QuitPre autocmd below closes it, and nvim
+      -- silently drops a quit whose current window went away
+      leave_bar(true)
+      vim.cmd("confirm qall")
+    end,
+  },
 }
 
 -- Optional icons (see activitybar.Item.optional). Which ones are shown is
