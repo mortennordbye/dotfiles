@@ -16,6 +16,33 @@
 return {
   "coder/claudecode.nvim",
   init = function()
+    -- Keep diffs off the activity bar (lua/config/activitybar.lua).
+    --
+    -- claudecode opens a diff in the first window that isn't a terminal, a
+    -- float or a known sidebar. The bar is none of those and is the first
+    -- window in the tab, so every diff targeted it and failed with E1513 (the
+    -- bar has 'winfixbuf'), leaving stray splits of the Claude window behind.
+    -- The window finder is local to the module with no option to extend it, so
+    -- add the bar's filetype to its exclusion lists as the module loads, the
+    -- same way lua/plugins/explorer.lua patches snacks.
+    package.preload["claudecode.diff"] = function(name)
+      package.preload[name] = nil
+      local path = vim.api.nvim_get_runtime_file("lua/claudecode/diff.lua", false)[1]
+      local src = table.concat(vim.fn.readfile(path), "\n")
+      local patched, n = src:gsub(
+        'or filetype == "snacks_layout_box"',
+        'or filetype == "snacks_layout_box" or filetype == "activitybar"'
+      )
+      if n == 0 then
+        vim.notify(
+          "claudecode.diff changed upstream: diffs may land on the activity bar (see lua/plugins/claudecode.lua)",
+          vim.log.levels.WARN
+        )
+        return dofile(path)
+      end
+      return assert(loadstring(patched, "@" .. path))()
+    end
+
     -- `nvim .` (or any single folder argument) is "start working in this
     -- project", so open the Claude panel alongside the explorer straight away.
     -- A file argument or a bare `nvim` (start screen) is left alone.
