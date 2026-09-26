@@ -257,6 +257,14 @@ M.items = {
     end,
   },
   {
+    icon = "\u{ea75}", -- codicon lock
+    name = "Lock Layout",
+    bottom = true,
+    -- lit while locked; lua/config/layout.lua
+    active = function() return require("config.layout").locked end,
+    run = function() require("config.layout").toggle() end,
+  },
+  {
     icon = "",
     name = "Cheatsheet",
     bottom = true,

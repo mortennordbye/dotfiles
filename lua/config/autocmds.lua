@@ -43,5 +43,8 @@ vim.api.nvim_create_autocmd("FileChangedShellPost", {
   end,
 })
 
+-- Keep editor, sidebars and terminal panels in their places; see lua/config/layout.lua.
+require("config.layout").setup()
+
 -- VSCode-style activity bar down the left edge; see lua/config/activitybar.lua.
 require("config.activitybar").setup()
