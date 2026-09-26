@@ -815,8 +815,13 @@ function M.setup()
     callback = function()
       local closing = vim.api.nvim_get_current_win()
       for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-        local ft = vim.bo[vim.api.nvim_win_get_buf(w)].filetype
-        if w ~= closing and vim.api.nvim_win_get_config(w).relative == "" and ft ~= FT and not ft:find("^snacks_") then
+        local b = vim.api.nvim_win_get_buf(w)
+        local ft = vim.bo[b].filetype
+        -- a terminal (Claude, the shell) keeps nvim open after this :q, so
+        -- the bar stays too; closing it would only have it reopen and
+        -- reshuffle the splits
+        local keeps_open = vim.bo[b].buftype == "terminal" or (ft ~= FT and not ft:find("^snacks_"))
+        if w ~= closing and vim.api.nvim_win_get_config(w).relative == "" and keeps_open then
           return
         end
       end
