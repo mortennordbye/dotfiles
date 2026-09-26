@@ -12,9 +12,8 @@
 --      loads a file into the panel window itself.
 --
 -- While locked:
---   * closing the last editor window opens a new one where it was (left of
---     the side panel, or above a bottom terminal), and the panels keep their
---     size;
+--   * closing the last editor window opens a new one where it was, and the
+--     panels keep their size;
 --   * terminal panels get 'winfixbuf', so nothing else can be loaded into
 --     them, and 'winfixwidth' / 'winfixheight', so opening and closing other
 --     splits doesn't squash them.
@@ -95,25 +94,63 @@ local function pick_buf(closed)
   return best or vim.api.nvim_create_buf(true, false)
 end
 
+-- Where the closing window sits in the layout tree: a neighbour in the same
+-- row or column, and the side of it the window was on. Splitting that
+-- neighbour puts a new window back in the same frame, whatever else is
+-- around it (a bottom terminal under everything, one under the editor only).
+---@param tab integer
+---@param closing integer
+---@return {win: integer, split: string}?
+local function slot(tab, closing)
+  local function find(node, parent, i)
+    if node[1] == "leaf" then
+      if node[2] == closing then
+        return parent, i
+      end
+      return
+    end
+    for j, child in ipairs(node[2]) do
+      local p, k = find(child, node, j)
+      if p then
+        return p, k
+      end
+    end
+  end
+  local parent, i = find(vim.fn.winlayout(vim.api.nvim_tabpage_get_number(tab)))
+  if not parent then
+    return
+  end
+  local row = parent[1] == "row"
+  local prev, next = parent[2][i - 1], parent[2][i + 1]
+  -- the nearest window of a neighbour: its first one when it comes after,
+  -- its last one when it comes before
+  local function edge(node, last)
+    while node[1] ~= "leaf" do
+      node = node[2][last and #node[2] or 1]
+    end
+    return node[2]
+  end
+  -- prefer a neighbour that is a single window; splitting inside a group of
+  -- windows would put the editor in that group's frame
+  if next and (next[1] == "leaf" or not prev or prev[1] ~= "leaf") then
+    return { win = edge(next, false), split = row and "left" or "above" }
+  elseif prev then
+    return { win = edge(prev, true), split = row and "right" or "below" }
+  end
+end
+
 ---@param tab integer
 ---@param closed_buf integer
+---@param where {win: integer, split: string}?
 ---@param sizes table<integer, {width: integer, height: integer}>
-local function restore(tab, closed_buf, sizes)
+local function restore(tab, closed_buf, where, sizes)
   if not M.locked or vim.v.exiting ~= vim.NIL or not vim.api.nvim_tabpage_is_valid(tab) then
     return
   end
   local wins = vim.api.nvim_tabpage_list_wins(tab)
-  local side, bottom
   for _, w in ipairs(wins) do
     if is_editor(w) then
       return -- something already put one back
-    end
-    if is_term_panel(w) then
-      if is_side(w) then
-        side = side or w
-      else
-        bottom = bottom or w
-      end
     end
   end
   -- nothing but the activity bar and floats left: nvim is on its way out
@@ -123,27 +160,19 @@ local function restore(tab, closed_buf, sizes)
   if #splits == 0 then
     return
   end
+  if not (where and vim.api.nvim_win_is_valid(where.win) and vim.api.nvim_win_get_tabpage(where.win) == tab) then
+    -- the neighbour went too: take the rest of the width, full height
+    where = { win = -1, split = "right" }
+  end
 
   local ea = vim.o.equalalways
   vim.o.equalalways = false
-  local buf = pick_buf(closed_buf)
-  local ok, win = pcall(function()
-    if side then
-      return vim.api.nvim_open_win(buf, true, { split = "left", win = side })
-    elseif bottom then
-      return vim.api.nvim_open_win(buf, true, { split = "above", win = bottom })
-    end
-    -- only the explorer is left: take the rest of the width, full height
-    return vim.api.nvim_open_win(buf, true, { split = "right", win = -1 })
-  end)
+  local ok, win = pcall(vim.api.nvim_open_win, pick_buf(closed_buf), true, { split = where.split, win = where.win })
   -- the new split took its room from its neighbours; give them their size back
   for w, size in pairs(sizes) do
     if vim.api.nvim_win_is_valid(w) then
-      if is_side(w) then
-        pcall(vim.api.nvim_win_set_width, w, size.width)
-      else
-        pcall(vim.api.nvim_win_set_height, w, size.height)
-      end
+      pcall(vim.api.nvim_win_set_width, w, size.width)
+      pcall(vim.api.nvim_win_set_height, w, size.height)
     end
   end
   vim.o.equalalways = ea
@@ -175,8 +204,8 @@ function M.setup()
     callback = vim.schedule_wrap(pin_all),
   })
 
-  -- WinClosed runs before the window leaves the layout, so the panel sizes
-  -- read here are still the ones to go back to.
+  -- WinClosed runs before the window leaves the layout, so its place in the
+  -- layout and the panel sizes read here are still the ones to go back to.
   vim.api.nvim_create_autocmd("WinClosed", {
     group = group,
     callback = function(ev)
@@ -197,8 +226,8 @@ function M.setup()
           end
         end
       end
-      local closed_buf = ev.buf
-      vim.schedule(function() restore(tab, closed_buf, sizes) end)
+      local closed_buf, where = ev.buf, slot(tab, closing)
+      vim.schedule(function() restore(tab, closed_buf, where, sizes) end)
     end,
   })
 
