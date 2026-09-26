@@ -51,6 +51,14 @@ map("n", "<leader>bR", "<cmd>edit!<cr>", { desc = "Force reload buffer (discard 
 
 -- Show / hide the VSCode-style activity bar (lua/config/activitybar.lua).
 map("n", "<leader>uA", function() require("config.activitybar").toggle() end, { desc = "Toggle Activity Bar" })
+-- Lock Layout (lua/config/layout.lua). Mapped here, not in its setup(): that
+-- runs from autocmds.lua, which LazyVim loads before snacks when nvim starts
+-- with a file or folder argument, so the Snacks global isn't there yet.
+Snacks.toggle({
+  name = "Lock Layout",
+  get = function() return require("config.layout").locked end,
+  set = function(on) require("config.layout").set(on) end,
+}):map("<leader>uP")
 map("n", "<leader>uX", function() require("config.activitybar").choose_icons() end, { desc = "Choose Activity Bar icons" })
 
 -- Keybinding cheatsheet (lua/config/cheatsheet.lua; content in cheatsheet_data.lua).

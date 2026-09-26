@@ -19,7 +19,7 @@
 --     them, and 'winfixwidth' / 'winfixheight', so opening and closing other
 --     splits doesn't squash them.
 --
--- Toggle with <leader>uP or the lock icon in the activity bar. The choice is
+-- Toggle with <leader>uP (lua/config/keymaps.lua) or the lock icon in the activity bar. The choice is
 -- kept across restarts.
 
 local M = {}
@@ -202,11 +202,6 @@ function M.setup()
     end,
   })
 
-  Snacks.toggle({
-    name = "Lock Layout",
-    get = function() return M.locked end,
-    set = M.set,
-  }):map("<leader>uP")
 end
 
 return M
