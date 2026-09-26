@@ -24,6 +24,19 @@ map("t", "<C-l>", "<cmd>wincmd l<cr>", { desc = "Go to right window" })
 -- (snacks' own double-esc mapping is disabled in lua/plugins/terminal.lua.)
 map("t", "<C-q>", "<C-\\><C-n>", { desc = "Exit terminal mode" })
 
+-- The same two keys while typing in a file, so leaving a typing mode works the
+-- same everywhere: <C-q> stops typing, <C-h/j/k/l> stops typing AND moves.
+-- Terminals re-enter terminal mode by themselves when you come back (snacks'
+-- auto_insert); a file comes back in normal mode.
+-- The insert-mode <C-k> signature help from LazyVim's LSP keys and blink.cmp is
+-- turned off in lua/plugins/navigation.lua so it can't shadow this; gK still
+-- shows it from normal mode.
+map("i", "<C-q>", "<Esc>", { desc = "Exit insert mode" })
+map("i", "<C-h>", "<Esc><C-w>h", { desc = "Go to left window" })
+map("i", "<C-j>", "<Esc><C-w>j", { desc = "Go to lower window" })
+map("i", "<C-k>", "<Esc><C-w>k", { desc = "Go to upper window" })
+map("i", "<C-l>", "<Esc><C-w>l", { desc = "Go to right window" })
+
 -- Make the <C-w> window prefix work INSIDE terminals too. Exits terminal mode
 -- first, then starts the window command — so e.g. <C-w>L moves a terminal to
 -- the right side without needing Ctrl+\ (which is awkward on a Norwegian layout).
