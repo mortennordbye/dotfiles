@@ -218,6 +218,7 @@ return {
     name = "Markdown",
     { "Space c p", "Toggle HTML preview (live)", note = "one window, stays open when you switch buffer, follows whichever .md you are in; same key stops it from any markdown buffer", custom = true, kw = "preview browser live html render md" },
     { "Space u m", "Toggle in-buffer render (raw ↔ pretty)", custom = true, kw = "render pretty raw toggle in buffer conceal" },
+    { "Space c p", "On a .pdf: open it in the same chromeless preview window", note = "all pages, Chrome's PDF viewer; the buffer itself only shows page 1", custom = true, kw = "pdf preview browser open view pages chrome" },
     { "Space c ShiftP", "Re-open the preview window", note = "for when you closed the window but the server is still running", custom = true, kw = "reopen preview window closed by accident second monitor" },
     { "Space f m", "Markdown files in the project", note = "the open preview switches to whichever file you pick", custom = true, kw = "markdown files list docs open other md filetree explorer find" },
     { "[[toc]]", "Type this in a document for a generated table of contents in the preview", kw = "table of contents toc headings outline" },

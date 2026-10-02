@@ -3,6 +3,17 @@
 -- Set to false to go back to a plain tab in the default browser.
 local preview_in_app_window = true
 
+-- Chrome's --app= gives a window with no tab bar, address bar or bookmarks:
+-- just the rendered document. Falls back to the default browser/app.
+local function open_in_app_window(url)
+  local chrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+  if vim.fn.executable(chrome) == 1 then
+    vim.fn.jobstart({ chrome, "--app=" .. url, "--window-size=1000,1200" }, { detach = true })
+  else
+    vim.fn.jobstart({ "open", url }, { detach = true })
+  end
+end
+
 return {
   -- Keep the .md buffer as RAW markdown by default.
   -- render-markdown.nvim (in-buffer prettifier) starts off; toggle when wanted.
@@ -82,16 +93,8 @@ return {
       vim.cmd([[do FileType]])
 
       -- g:mkdp_browserfunc is called by the server as a Vimscript function
-      -- with the preview URL. Chrome's --app= gives a window with no tab bar,
-      -- address bar or bookmarks: just the rendered document.
-      _G.MkdpOpenPreviewWindow = function(url)
-        local chrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-        if vim.fn.executable(chrome) == 1 then
-          vim.fn.jobstart({ chrome, "--app=" .. url, "--window-size=1000,1200" }, { detach = true })
-        else
-          vim.fn.jobstart({ "open", url }, { detach = true }) -- default browser
-        end
-      end
+      -- with the preview URL.
+      _G.MkdpOpenPreviewWindow = open_in_app_window
       vim.cmd([[
         function! MkdpOpenPreviewWindow(url) abort
           call luaeval('_G.MkdpOpenPreviewWindow(_A)', a:url)
@@ -123,6 +126,28 @@ return {
         group = group,
         pattern = md,
         command = "silent! checktime",
+      })
+    end,
+  },
+
+  -- Same key on a PDF opens it in the same kind of chromeless window, using
+  -- Chrome's built-in PDF viewer (the in-buffer view only shows page 1).
+  {
+    "folke/snacks.nvim",
+    init = function()
+      vim.api.nvim_create_autocmd("BufEnter", {
+        group = vim.api.nvim_create_augroup("pdf_preview_key", { clear = true }),
+        pattern = "*.pdf",
+        callback = function(ev)
+          vim.keymap.set("n", "<leader>cp", function()
+            local path = vim.api.nvim_buf_get_name(ev.buf)
+            if preview_in_app_window then
+              open_in_app_window(vim.uri_from_fname(path))
+            else
+              vim.fn.jobstart({ "open", path }, { detach = true })
+            end
+          end, { buffer = ev.buf, desc = "PDF Preview (browser)" })
+        end,
       })
     end,
   },
