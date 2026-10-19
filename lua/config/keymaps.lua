@@ -37,11 +37,12 @@ map("i", "<C-j>", "<Esc><C-w>j", { desc = "Go to lower window" })
 map("i", "<C-k>", "<Esc><C-w>k", { desc = "Go to upper window" })
 map("i", "<C-l>", "<Esc><C-w>l", { desc = "Go to right window" })
 
--- Make the <C-w> window prefix work INSIDE terminals too. Exits terminal mode
--- first, then starts the window command — so e.g. <C-w>L moves a terminal to
--- the right side without needing Ctrl+\ (which is awkward on a Norwegian layout).
--- Shell/Claude word-delete is still available via Option+Delete.
-map("t", "<C-w>", "<C-\\><C-n><C-w>", { desc = "Window command (from terminal)" })
+-- <C-w> is deliberately NOT mapped in terminal mode. It used to start a window
+-- command from inside a terminal, but <C-w> is also word-delete at Claude's
+-- prompt and in the shell: press it out of habit, keep typing, and the next
+-- letter ran as a window command. "s" split the Claude panel into two stacked
+-- copies, "v" side by side, and claudecode then lost track of which window
+-- was its own. For window commands in a terminal, press <C-q> first.
 
 -- Reload files from disk (handy when edited externally, e.g. by Claude Code,
 -- while open here). <leader>br = safe reload of any changed buffers;

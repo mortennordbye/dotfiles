@@ -16,10 +16,14 @@
 --     panels keep their size;
 --   * terminal panels get 'winfixbuf', so nothing else can be loaded into
 --     them, and 'winfixwidth' / 'winfixheight', so opening and closing other
---     splits doesn't squash them.
+--     splits doesn't squash them;
+--   * a terminal shows in one window only: a second window on the same
+--     terminal (a stray <C-w>s in the Claude panel, say) is closed as soon as
+--     it appears. Otherwise closing the original leaves claudecode tracking a
+--     window that is gone, and its next toggle opens yet another copy.
 --
--- Toggle with <leader>uP (lua/config/keymaps.lua) or the lock icon in the activity bar. The choice is
--- kept across restarts.
+-- Toggle with <leader>uP (lua/config/keymaps.lua) or the lock icon in the
+-- activity bar. The choice is kept across restarts.
 
 local M = {}
 
@@ -182,6 +186,40 @@ local function restore(tab, closed_buf, where, sizes)
   end
 end
 
+-- The window snacks / claudecode track carries vim.w.snacks_win; a stray
+-- split of it does not. Keep the tracked one, else the oldest.
+---@param a integer
+---@param b integer
+local function keep_first(a, b)
+  local ta, tb = vim.w[a].snacks_win ~= nil, vim.w[b].snacks_win ~= nil
+  if ta ~= tb then
+    return ta
+  end
+  return a < b
+end
+
+local function dedupe()
+  if not M.locked then
+    return
+  end
+  local by_buf = {} ---@type table<integer, integer[]>
+  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if is_term_panel(w) then
+      local b = vim.api.nvim_win_get_buf(w)
+      by_buf[b] = by_buf[b] or {}
+      table.insert(by_buf[b], w)
+    end
+  end
+  for _, wins in pairs(by_buf) do
+    if #wins > 1 then
+      table.sort(wins, keep_first)
+      for i = 2, #wins do
+        pcall(vim.api.nvim_win_close, wins[i], true)
+      end
+    end
+  end
+end
+
 function M.set(locked)
   M.locked = locked
   pcall(vim.fn.writefile, { vim.json.encode({ locked = locked }) }, state_file)
@@ -201,7 +239,10 @@ function M.setup()
 
   vim.api.nvim_create_autocmd({ "TermOpen", "BufWinEnter", "WinNew" }, {
     group = group,
-    callback = vim.schedule_wrap(pin_all),
+    callback = vim.schedule_wrap(function()
+      pin_all()
+      dedupe()
+    end),
   })
 
   -- WinClosed runs before the window leaves the layout, so its place in the
