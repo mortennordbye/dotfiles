@@ -204,13 +204,48 @@ end
 -- WinNew/BufWinEnter means an ordinary split; WinResized/WinEnter is the
 -- unknown one. Remove once the cause is found.
 local stray_log = vim.fn.stdpath("state") .. "/layout_stray.log"
-local history = {} ---@type string[]
+-- global so a reloaded copy of this file keeps adding to the same list
+_G.layout_stray_history = _G.layout_stray_history or {}
+local history = _G.layout_stray_history ---@type string[]
 
 ---@param line string
 local function remember(line)
   table.insert(history, os.date("%H:%M:%S ") .. line)
   if #history > 60 then
     table.remove(history, 1)
+  end
+end
+
+-- A terminal shown in more than one split on this tab.
+local function has_copy()
+  local seen = {} ---@type table<integer, boolean>
+  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if is_term_panel(w) then
+      local b = vim.api.nvim_win_get_buf(w)
+      if seen[b] then
+        return true
+      end
+      seen[b] = true
+    end
+  end
+  return false
+end
+
+-- Keys only explain splits you made. For one a plugin made from Lua, wrap
+-- the API calls a split goes through and keep a stack trace whenever one
+-- leaves a terminal in two windows.
+local function watch_api()
+  for _, name in ipairs({ "nvim_exec2", "nvim_command", "nvim_cmd", "nvim_open_win", "nvim_win_call" }) do
+    local orig = vim.api[name]
+    vim.api[name] = function(...)
+      local before = #vim.api.nvim_list_wins()
+      local ret = vim.F.pack_len(orig(...))
+      if #vim.api.nvim_list_wins() > before and has_copy() then
+        local trace = debug.traceback("", 2):gsub("\n%s*", " <- "):gsub("^ <%- stack traceback: <%- ", "")
+        remember(("api  %s made a copy: %s"):format(name, trace))
+      end
+      return vim.F.unpack_len(ret)
+    end
   end
 end
 
@@ -312,6 +347,10 @@ function M.setup()
     end
     remember(("key %-4s %s"):format(mode, typing and "typing" or k))
   end, vim.api.nvim_create_namespace("layout_stray_debug"))
+  if not vim.g.layout_stray_watch then
+    vim.g.layout_stray_watch = true -- once, also when this file is reloaded
+    watch_api()
+  end
   vim.api.nvim_create_autocmd("CmdlineLeave", {
     group = group,
     callback = function()
