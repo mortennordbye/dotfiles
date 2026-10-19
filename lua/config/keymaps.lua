@@ -17,6 +17,15 @@ map("t", "<C-j>", "<cmd>wincmd j<cr>", { desc = "Go to lower window" })
 map("t", "<C-k>", "<cmd>wincmd k<cr>", { desc = "Go to upper window" })
 map("t", "<C-l>", "<cmd>wincmd l<cr>", { desc = "Go to right window" })
 
+-- Resize with Ctrl+Shift+arrows. LazyVim's Ctrl+arrows never arrive: macOS
+-- keeps them for Mission Control and switching Spaces. Mapped in terminal
+-- mode too, so the Claude panel resizes without leaving it first. Width
+-- steps are larger because columns are much narrower than rows.
+map({ "n", "t" }, "<C-S-Up>", "<cmd>resize +2<cr>", { desc = "Taller window" })
+map({ "n", "t" }, "<C-S-Down>", "<cmd>resize -2<cr>", { desc = "Shorter window" })
+map({ "n", "t" }, "<C-S-Left>", "<cmd>vertical resize -4<cr>", { desc = "Narrower window" })
+map({ "n", "t" }, "<C-S-Right>", "<cmd>vertical resize +4<cr>", { desc = "Wider window" })
+
 -- Leave terminal mode. Deliberately NOT <Esc> or <Esc><Esc>: Claude Code uses Esc
 -- as its interrupt and Esc Esc for rewind, so any mapping there either steals those
 -- keys or delays them by 'timeoutlen'. <C-q> is unused by Claude and by nvim in
