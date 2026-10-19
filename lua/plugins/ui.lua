@@ -3,6 +3,12 @@ return {
   {
     "folke/snacks.nvim",
     opts = {
+      -- Real images in the editor via Ghostty's Kitty graphics protocol:
+      -- opening a png/jpg/pdf shows it rendered (pdf = first page), and
+      -- markdown/html/latex show images and math inline. Needs ImageMagick,
+      -- plus Ghostscript for pdf (brew install imagemagick ghostscript).
+      -- Does not work inside nvim's :terminal or over zellij.
+      image = {},
       dashboard = {
         preset = {
           -- `p` and `d` are the two "where do I start?" entries: p picks a git
