@@ -81,7 +81,7 @@ return {
           -- Name the pane. Without this it is an unlabelled terminal sitting
           -- next to the editor, which is ambiguous once there is more than one
           -- split open.
-          winbar = "%#Title# Claude Code %*",
+          winbar = " Claude Code ",
           number = false,
           relativenumber = false,
           signcolumn = "no",

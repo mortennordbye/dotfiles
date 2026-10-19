@@ -18,7 +18,7 @@ local function toggle()
       position = "right",
       width = 0.38, -- matches the Claude Code panel
       wo = {
-        winbar = "%#Title# Antigravity CLI %*",
+        winbar = " Antigravity CLI ",
         number = false,
         relativenumber = false,
         signcolumn = "no",

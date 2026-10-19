@@ -90,6 +90,23 @@ return {
 
       -- The active line number should be readable, not just "slightly less dim".
       hl.CursorLineNr = { fg = c.yellow, bold = true }
+
+      -- Make the focused window obvious. dim_inactive alone only drops the
+      -- background from bg to bg_dark, a step too small to see at a glance.
+      -- Unfocused windows go a shade darker still and their plain text fades.
+      hl.NormalNC = { fg = c.fg_dark, bg = c.bg_dark1 }
+      -- Snacks terminals (Claude Code, Copilot, Antigravity) map both their
+      -- focused and unfocused states to NormalFloat, so they never dimmed.
+      hl.SnacksNormalNC = { link = "NormalNC" }
+      -- Window labels (the editor's filename, "Claude Code", ...) light up
+      -- only in the focused window. Backgrounds alone were not enough: editor,
+      -- explorer and panels all sit within a few shades of each other. The
+      -- winbar strings leave the colour to these groups instead of hardcoding
+      -- %#Title#.
+      hl.WinBar = { fg = c.blue, bg = c.bg_highlight, bold = true }
+      hl.WinBarNC = { fg = c.dark3, bg = c.bg_dark1 }
+      hl.SnacksWinBar = { link = "WinBar" }
+      hl.SnacksWinBarNC = { link = "WinBarNC" }
     end,
   },
 }
