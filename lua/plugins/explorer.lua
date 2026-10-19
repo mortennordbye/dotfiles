@@ -123,6 +123,24 @@ return {
               end,
               desc = "Switch branch",
             },
+            preview_file = {
+              action = function(picker, item)
+                local file = item and item.file or ""
+                local ext = file:lower():match("%.(%w+)$")
+                if ext == "pdf" then
+                  require("config.preview").open_pdf(file)
+                elseif ext == "md" or ext == "markdown" or ext == "mdx" then
+                  require("config.preview").open_md(file, picker.main, picker.list.win.win)
+                else
+                  vim.notify("Space c p previews .pdf and .md files", vim.log.levels.INFO)
+                end
+              end,
+              desc = "Preview PDF / Markdown (browser)",
+            },
+            noop = {
+              action = function() end,
+              desc = "Nothing",
+            },
             scm_menu = {
               action = function(picker, item)
                 require("config.explorer_changes").menu(picker, item)
@@ -149,6 +167,10 @@ return {
                 -- moved the cursor, so this runs even when clicking in from
                 -- the editor (same trick as the activity bar)
                 ["<LeftRelease>"] = "scm_click",
+                -- nothing to select in a file tree: a click that moved by a
+                -- cell counted as a drag, started Visual mode and popped up
+                -- which-key's Visual menu (the activity bar does the same)
+                ["<LeftDrag>"] = "noop",
                 ["-"] = "scm_unstage",
                 ["<Del>"] = "scm_discard_del",
                 ["<BS>"] = "scm_discard_bs",
@@ -157,6 +179,8 @@ return {
                 ["gl"] = "scm_pull",
                 ["gb"] = "scm_branch",
                 ["gm"] = "scm_menu",
+                -- same key as in a .pdf / .md buffer, on the hovered file
+                ["<leader>cp"] = "preview_file",
                 -- swap to the changed-files-only view; see lua/config/changes.lua
                 ["C"] = {
                   function(picker)

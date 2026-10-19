@@ -1,18 +1,5 @@
--- Open the browser preview in a chromeless Chrome "app" window instead of a
--- normal tab, so it can be tiled next to Ghostty like a VSCode preview pane.
--- Set to false to go back to a plain tab in the default browser.
-local preview_in_app_window = true
-
--- Chrome's --app= gives a window with no tab bar, address bar or bookmarks:
--- just the rendered document. Falls back to the default browser/app.
-local function open_in_app_window(url)
-  local chrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-  if vim.fn.executable(chrome) == 1 then
-    vim.fn.jobstart({ chrome, "--app=" .. url, "--window-size=1000,1200" }, { detach = true })
-  else
-    vim.fn.jobstart({ "open", url }, { detach = true })
-  end
-end
+-- The preview window itself (chromeless Chrome) lives in lua/config/preview.lua.
+local preview = require("config.preview")
 
 return {
   -- Keep the .md buffer as RAW markdown by default.
@@ -50,9 +37,7 @@ return {
       -- InsertLeave / CursorHold).
       vim.g.mkdp_refresh_slow = 0
 
-      if preview_in_app_window then
-        vim.g.mkdp_browserfunc = "MkdpOpenPreviewWindow"
-      end
+      vim.g.mkdp_browserfunc = "MkdpOpenPreviewWindow"
 
       vim.g.mkdp_theme = vim.o.background == "light" and "light" or "dark"
       vim.g.mkdp_page_title = "${name}"
@@ -93,8 +78,12 @@ return {
       vim.cmd([[do FileType]])
 
       -- g:mkdp_browserfunc is called by the server as a Vimscript function
-      -- with the preview URL.
-      _G.MkdpOpenPreviewWindow = open_in_app_window
+      -- with the preview URL. The User event tells preview.open_md that the
+      -- server has picked its buffer.
+      _G.MkdpOpenPreviewWindow = function(url)
+        preview.open_url(url)
+        vim.api.nvim_exec_autocmds("User", { pattern = "MkdpPageOpened" })
+      end
       vim.cmd([[
         function! MkdpOpenPreviewWindow(url) abort
           call luaeval('_G.MkdpOpenPreviewWindow(_A)', a:url)
@@ -140,12 +129,7 @@ return {
         pattern = "*.pdf",
         callback = function(ev)
           vim.keymap.set("n", "<leader>cp", function()
-            local path = vim.api.nvim_buf_get_name(ev.buf)
-            if preview_in_app_window then
-              open_in_app_window(vim.uri_from_fname(path))
-            else
-              vim.fn.jobstart({ "open", path }, { detach = true })
-            end
+            preview.open_pdf(vim.api.nvim_buf_get_name(ev.buf))
           end, { buffer = ev.buf, desc = "PDF Preview (browser)" })
         end,
       })
