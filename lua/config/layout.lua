@@ -237,7 +237,10 @@ end
 function M.setup()
   local group = vim.api.nvim_create_augroup("layout_lock", { clear = true })
 
-  vim.api.nvim_create_autocmd({ "TermOpen", "BufWinEnter", "WinNew" }, {
+  -- WinResized and WinEnter catch a copy made with autocommands off (a plugin's
+  -- `noautocmd split`), which never fires WinNew or BufWinEnter: the split
+  -- still resizes its neighbour on the next redraw, and entering it counts too.
+  vim.api.nvim_create_autocmd({ "TermOpen", "BufWinEnter", "WinNew", "WinResized", "WinEnter" }, {
     group = group,
     callback = vim.schedule_wrap(function()
       pin_all()
