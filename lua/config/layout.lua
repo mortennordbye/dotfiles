@@ -238,9 +238,9 @@ local function watch_api()
   for _, name in ipairs({ "nvim_exec2", "nvim_command", "nvim_cmd", "nvim_open_win", "nvim_win_call" }) do
     local orig = vim.api[name]
     vim.api[name] = function(...)
-      local before = #vim.api.nvim_list_wins()
+      local before, had = #vim.api.nvim_list_wins(), has_copy()
       local ret = vim.F.pack_len(orig(...))
-      if #vim.api.nvim_list_wins() > before and has_copy() then
+      if not had and #vim.api.nvim_list_wins() > before and has_copy() then
         local trace = debug.traceback("", 2):gsub("\n%s*", " <- "):gsub("^ <%- stack traceback: <%- ", "")
         remember(("api  %s made a copy: %s"):format(name, trace))
       end
