@@ -4,19 +4,7 @@ return {
     "folke/snacks.nvim",
     opts = {
       dashboard = {
-        -- ANSI Shadow lettering. Every line is exactly 50 display cells wide;
-        -- the ╔╗╚╝ shadow glyphs only line up if the letters are NOT separated
-        -- by extra spaces, which is what made the first attempt look doubled.
         preset = {
-          header = table.concat({
-            "███╗   ██╗███████╗ ██████╗ ██╗   ██╗██╗███╗   ███╗",
-            "████╗  ██║██╔════╝██╔═══██╗██║   ██║██║████╗ ████║",
-            "██╔██╗ ██║█████╗  ██║   ██║██║   ██║██║██╔████╔██║",
-            "██║╚██╗██║██╔══╝  ██║   ██║╚██╗ ██╔╝██║██║╚██╔╝██║",
-            "██║ ╚████║███████╗╚██████╔╝ ╚████╔╝ ██║██║ ╚═╝ ██║",
-            "╚═╝  ╚═══╝╚══════╝ ╚═════╝   ╚═══╝  ╚═╝╚═╝     ╚═╝",
-          }, "\n"),
-
           -- `p` and `d` are the two "where do I start?" entries: p picks a git
           -- repo, d picks any folder under ~/Documents. "Recent Files" gets no
           -- shortcut because that section below already has its own 1..n keys.
@@ -58,7 +46,8 @@ return {
         -- render side by side; below that snacks silently stacks the panes,
         -- which is why the two-pane version came out as one long list.
         sections = {
-          { section = "header", padding = 1 },
+          -- folder name in big letters, scaled to fit; see config/dashboard_title.lua
+          require("config.dashboard_title").section(),
           { section = "keys", padding = 1 },
           -- Icons are \u{...} escapes (Nerd Font private use area) so they
           -- survive tools that strip unknown codepoints -- see lualine.lua.
