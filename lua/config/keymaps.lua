@@ -17,14 +17,22 @@ map("t", "<C-j>", "<cmd>wincmd j<cr>", { desc = "Go to lower window" })
 map("t", "<C-k>", "<cmd>wincmd k<cr>", { desc = "Go to upper window" })
 map("t", "<C-l>", "<cmd>wincmd l<cr>", { desc = "Go to right window" })
 
--- Resize with Ctrl+Shift+arrows. LazyVim's Ctrl+arrows never arrive: macOS
--- keeps them for Mission Control and switching Spaces. Mapped in terminal
--- mode too, so the Claude panel resizes without leaving it first. Width
--- steps are larger because columns are much narrower than rows.
-map({ "n", "t" }, "<C-S-Up>", "<cmd>resize +2<cr>", { desc = "Taller window" })
-map({ "n", "t" }, "<C-S-Down>", "<cmd>resize -2<cr>", { desc = "Shorter window" })
-map({ "n", "t" }, "<C-S-Left>", "<cmd>vertical resize -4<cr>", { desc = "Narrower window" })
-map({ "n", "t" }, "<C-S-Right>", "<cmd>vertical resize +4<cr>", { desc = "Wider window" })
+-- Resize with Ctrl+Shift+arrows or Ctrl+Shift+h/j/k/l (Ctrl+h/j/k/l moves
+-- between windows, adding Shift resizes). LazyVim's Ctrl+arrows never arrive:
+-- macOS keeps them for Mission Control and switching Spaces. Mapped in
+-- terminal mode too, so the Claude panel resizes without leaving it first.
+-- Width steps are larger because columns are much narrower than rows.
+-- Ctrl+Shift+letter only reaches nvim as its own key because Ghostty speaks
+-- the kitty keyboard protocol; in a plainer terminal it arrives as Ctrl+letter.
+for _, r in ipairs({
+  { "<C-S-Up>", "<C-S-k>", "resize +2", "Taller window" },
+  { "<C-S-Down>", "<C-S-j>", "resize -2", "Shorter window" },
+  { "<C-S-Left>", "<C-S-h>", "vertical resize -4", "Narrower window" },
+  { "<C-S-Right>", "<C-S-l>", "vertical resize +4", "Wider window" },
+}) do
+  map({ "n", "t" }, r[1], "<cmd>" .. r[3] .. "<cr>", { desc = r[4] })
+  map({ "n", "t" }, r[2], "<cmd>" .. r[3] .. "<cr>", { desc = r[4] })
+end
 
 -- Leave terminal mode. Deliberately NOT <Esc> or <Esc><Esc>: Claude Code uses Esc
 -- as its interrupt and Esc Esc for rewind, so any mapping there either steals those
