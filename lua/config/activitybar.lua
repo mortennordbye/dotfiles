@@ -223,6 +223,18 @@ M.items = {
     end,
   },
   {
+    icon = "\u{f028c}", -- nf-md-forum
+    name = "Claude Hub",
+    -- lua/config/claude_hub.lua: every Claude session from every nvim; the
+    -- badge is how many of them are waiting on you
+    active = function() return require("config.claude_hub").is_open() end,
+    badge = function() return require("config.claude_hub").waiting end,
+    run = function()
+      leave_bar()
+      require("config.claude_hub").toggle()
+    end,
+  },
+  {
     icon = "",
     name = "Copilot CLI",
     active = function()

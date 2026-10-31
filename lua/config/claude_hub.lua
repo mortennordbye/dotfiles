@@ -35,7 +35,16 @@ local TAIL_BYTES = 512 * 1024
 
 local ns = vim.api.nvim_create_namespace("claude_hub")
 
-M.waiting = 0 -- sessions blocked on you, for the statusline
+M.waiting = 0 -- sessions blocked on you, for the statusline and activity bar badge
+
+-- Redraw the activity bar (lua/config/activitybar.lua) so its Claude Hub icon
+-- shows the current badge and whether the hub is open.
+local function bar_refresh()
+  local bar = package.loaded["config.activitybar"]
+  if bar and bar.refresh then
+    pcall(bar.refresh)
+  end
+end
 
 local function read_file(path)
   local f = io.open(path, "r")
@@ -385,6 +394,11 @@ function M.close()
       vim.api.nvim_win_close(w, true)
     end
   end
+  bar_refresh()
+end
+
+function M.is_open()
+  return H ~= nil
 end
 
 --- Jump to the session's panel. In this nvim that is a window switch; another
@@ -521,6 +535,7 @@ function M.open()
   show_chat(true)
   H.timer = uv.new_timer()
   H.timer:start(1500, 1500, vim.schedule_wrap(refresh))
+  bar_refresh()
 end
 
 function M.toggle()
@@ -545,7 +560,10 @@ function M.setup()
         n = n + 1
       end
     end
-    M.waiting = n
+    if n ~= M.waiting then
+      M.waiting = n
+      bar_refresh()
+    end
   end
   count()
   bg_timer = uv.new_timer()
