@@ -79,6 +79,10 @@ Snacks.toggle({
 }):map("<leader>uP")
 map("n", "<leader>uX", function() require("config.activitybar").choose_icons() end, { desc = "Choose Activity Bar icons" })
 
+-- Claude hub (lua/config/claude_hub.lua): every Claude session on this machine,
+-- from any nvim, with its live chat; reply or approve without switching windows.
+map("n", "<leader>ah", function() require("config.claude_hub").toggle() end, { desc = "Claude hub (all sessions)" })
+
 -- Keybinding cheatsheet (lua/config/cheatsheet.lua; content in cheatsheet_data.lua).
 map("n", "<leader>h", function() require("config.cheatsheet").open() end, { desc = "Cheatsheet" })
 

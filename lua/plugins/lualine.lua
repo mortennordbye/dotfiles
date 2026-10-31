@@ -56,6 +56,23 @@ return {
       end,
     })
 
+    -- Claude sessions waiting on you, across every nvim (lua/config/claude_hub.lua).
+    -- Hidden while nothing waits; click it to open the hub.
+    local hub = require("config.claude_hub")
+    hub.setup()
+    table.insert(opts.sections.lualine_x, 1, {
+      hub.component,
+      color = function()
+        return { fg = Snacks.util.color("DiagnosticError"), gui = "bold" }
+      end,
+      cond = function()
+        return hub.waiting > 0
+      end,
+      on_click = function()
+        hub.open()
+      end,
+    })
+
     -- Terminals (Claude, Copilot, the shell): name what is running instead of
     -- the buffer's term://…/bin/claude path, and drop the cursor position and
     -- scroll percentage, which only describe the scrollback.
