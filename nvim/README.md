@@ -7,11 +7,12 @@ useful.
 
 ## Install
 
-Back up anything you already have, then clone into place and start Neovim:
+Back up anything you already have, then clone the repo and link this folder into place:
 
 ```sh
+git clone https://github.com/mortennordbye/dotfiles ~/dotfiles
 mv ~/.config/nvim ~/.config/nvim.bak
-git clone https://github.com/mortennordbye/nvim ~/.config/nvim
+ln -s ~/dotfiles/nvim ~/.config/nvim
 nvim
 ```
 
@@ -19,12 +20,18 @@ The first start installs the plugins, then treesitter parsers and language serve
 a few minutes. Some plugins can end up newer than `lazy-lock.json`; run `:Lazy restore` to
 get exactly the pinned versions.
 
-To try it next to your own config without touching it, clone it to `~/.config/nvim-morten`
-and run `NVIM_APPNAME=nvim-morten nvim`.
+To try it next to your own config without touching it, link it under another name and run it
+with `NVIM_APPNAME`:
+
+```sh
+ln -s ~/dotfiles/nvim ~/.config/nvim-morten
+NVIM_APPNAME=nvim-morten nvim
+```
 
 ## Requirements
 
-Developed on macOS with Neovim 0.12. It should mostly work on Linux, but that is untested.
+Developed on macOS with Neovim 0.12, running in [Ghostty](../ghostty/config). It should mostly
+work on Linux, but that is untested.
 
 - [LazyVim's requirements](https://www.lazyvim.org/#%EF%B8%8F-requirements): git, a C
   compiler, a [Nerd Font](https://www.nerdfonts.com/), and a terminal with true color
