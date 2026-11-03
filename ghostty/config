@@ -1,0 +1,99 @@
+# Ghostty config — tuned for LazyVim
+# Docs: https://ghostty.org/docs/config
+# Reload after editing: Cmd+Shift+, (or restart Ghostty)
+
+# --- Font ---
+font-family = "JetBrainsMono Nerd Font Mono"
+# The nvim activity bar's icons (nvim/lua/config/activitybar.lua) come from
+# the non-Mono patch, whose icons are full size; the Mono one shrinks every
+# icon into a single cell. Only these codepoints, so the rest is unchanged.
+font-codepoint-map = U+EAF0,U+EA6D,U+EA68,U+EB91,U+EA79,U+EA6C,U+EB44,U+EC1E,U+EA85,U+EAE6,U+EA65,U+EB51,U+EA76,U+EA75,U+F06A9=JetBrainsMono Nerd Font
+font-size = 14
+# Slightly taller lines read nicer in editors
+adjust-cell-height = 8%
+
+# --- Theme ---
+# Ghostty ships many themes. Browse with:  ghostty +list-themes
+# Must match the Neovim colours or the terminal background and the editor
+# background are subtly different shades. Neovim runs a custom "balanced"
+# tokyonight style (nvim/lua/plugins/colorscheme.lua), so the TokyoNight Moon
+# theme is kept only as a base and every colour is overridden to that palette.
+theme = TokyoNight Moon
+background = #1b1e24
+foreground = #dce1e8
+cursor-color = #dce1e8
+selection-background = #3a5a8c
+selection-foreground = #dce1e8
+palette = 0=#121418
+palette = 1=#ff8b92
+palette = 2=#a8d98a
+palette = 3=#e8c77d
+palette = 4=#7cb7ff
+palette = 5=#c4a7ff
+palette = 6=#8fd8f0
+palette = 7=#aab2bf
+palette = 8=#4b5263
+palette = 9=#ffa3a9
+palette = 10=#bde5a4
+palette = 11=#f0d59a
+palette = 12=#9cc9ff
+palette = 13=#d4bdff
+palette = 14=#aee3f5
+palette = 15=#dce1e8
+
+# Render in Display P3 rather than sRGB. On a modern Mac panel this is the
+# single biggest colour improvement available: the tokyonight blues and
+# magentas stop looking washed out.
+window-colorspace = display-p3
+
+# --- Window ---
+# Fully opaque, deliberately.
+#
+# `background-opacity` below 1 applies ONLY to the default background, because
+# `background-opacity-cells` defaults to false. Neovim paints explicit
+# background cells, which stay opaque, while the window padding stays translucent
+# and picks up the desktop wallpaper -- so the editor looked like it sat on a
+# slightly different colour to its own border. Opaque removes the seam.
+#
+# To get the glass look back, set opacity below 1 AND
+# `background-opacity-cells = true`, so cell backgrounds are translucent too.
+# That keeps things consistent but also makes text backgrounds see-through.
+background-opacity = 1
+window-padding-x = 10
+window-padding-y = 8
+# Keep padding even when the cell grid doesn't divide the window exactly,
+# rather than dumping the remainder on one edge.
+window-padding-balance = true
+# Fade splits that don't have focus, matching Neovim's dim_inactive.
+unfocused-split-opacity = 0.92
+# Remember window size between launches
+window-save-state = always
+macos-titlebar-style = tabs
+
+# --- Cursor ---
+cursor-style = block
+cursor-style-blink = false
+# Let Neovim control the cursor shape (insert = bar, etc.)
+shell-integration-features = cursor,sudo,title
+
+# --- Behaviour ---
+# Right Option only.
+#
+# `true` makes BOTH Option keys act as Alt, which kills the macOS Unicode
+# compose sequences. On a Norwegian layout that costs the characters you need
+# most in a shell: Option+7 = |, Option+Shift+7 = \, Option+8/9 = [ ],
+# Option+Shift+8/9 = { }.
+#
+# `right` keeps left Option composing those characters as normal, while right
+# Option still reaches Neovim as Alt for <A-...> mappings (e.g. <A-t> for the
+# terminal toggle). So: type | with LEFT Option, press Alt bindings with RIGHT.
+macos-option-as-alt = right
+copy-on-select = clipboard
+# Ask before closing a terminal that has a running program (e.g. Neovim),
+# so an accidental Cmd+W doesn't nuke your session.
+confirm-close-surface = true
+mouse-hide-while-typing = true
+
+# Quit an instance once its last window is closed. Combined with AeroSpace's
+# `open -na` launch, this stops empty "ghost" Ghostty instances from piling up.
+quit-after-last-window-closed = true
