@@ -205,15 +205,19 @@ local function watch(list, picker)
         if git_file and git_file ~= "index" and git_file ~= "HEAD" then
           return
         end
-        refresh_timer:start(300, 0, vim.schedule_wrap(function()
-          local p = watches[repo] and watches[repo].picker
-          if not p or p.closed then
-            return unwatch(repo)
-          end
-          require("snacks.explorer.tree"):refresh(repo)
-          require("snacks.explorer.git").refresh(repo)
-          require("snacks.explorer.actions").update(p, { refresh = true, target = false })
-        end))
+        refresh_timer:start(
+          300,
+          0,
+          vim.schedule_wrap(function()
+            local p = watches[repo] and watches[repo].picker
+            if not p or p.closed then
+              return unwatch(repo)
+            end
+            require("snacks.explorer.tree"):refresh(repo)
+            require("snacks.explorer.git").refresh(repo)
+            require("snacks.explorer.actions").update(p, { refresh = true, target = false })
+          end)
+        )
       end)
       if ok then
         watches[repo] = { handle = handle, picker = picker }
@@ -295,18 +299,30 @@ function M.finder(opts, ctx)
       end
     end
     -- two per row: more don't fit the panel's width
-    cb({ text = "", section = "", keys_hint = {
-      { "\u{f0415}", "+ -", "stage/unstage" }, -- plus
-      { "\u{f054c}", "⌫", "discard" }, -- undo
-    } })
-    cb({ text = "", section = "", keys_hint = {
-      { "\u{f0718}", "gc", "commit" }, -- source-commit
-      { "\u{f005d}", "gp", "push" }, -- arrow-up
-    } })
-    cb({ text = "", section = "", keys_hint = {
-      { "\u{f062c}", "gb", "branch" }, -- source-branch
-      { "\u{f0045}", "gl", "pull" }, -- arrow-down
-    } })
+    cb({
+      text = "",
+      section = "",
+      keys_hint = {
+        { "\u{f0415}", "+ -", "stage/unstage" }, -- plus
+        { "\u{f054c}", "⌫", "discard" }, -- undo
+      },
+    })
+    cb({
+      text = "",
+      section = "",
+      keys_hint = {
+        { "\u{f0718}", "gc", "commit" }, -- source-commit
+        { "\u{f005d}", "gp", "push" }, -- arrow-up
+      },
+    })
+    cb({
+      text = "",
+      section = "",
+      keys_hint = {
+        { "\u{f062c}", "gb", "branch" }, -- source-branch
+        { "\u{f0045}", "gl", "pull" }, -- arrow-down
+      },
+    })
     cb({ text = "", section = "", rule = true })
     if #rows == 0 then
       cb({ text = "", section = "No repository" })
@@ -433,7 +449,8 @@ function M.format(item, picker)
       { item.section, "SnacksPickerDirectory" },
     }
     if item.branch then
-      ret[#ret + 1] = { "  \u{e725} " .. item.branch, item.detached and "SnacksPickerGitDetached" or "SnacksPickerGitBranch" }
+      ret[#ret + 1] =
+        { "  \u{e725} " .. item.branch, item.detached and "SnacksPickerGitDetached" or "SnacksPickerGitBranch" }
     end
     if (item.behind or 0) > 0 then
       ret[#ret + 1] = { " \u{2193}" .. item.behind, "SnacksPickerGitStatusModified" }
@@ -763,7 +780,8 @@ function M.push(picker, item)
     return
   end
   local name = vim.fs.basename(repo)
-  local has_upstream = vim.system({ "git", "rev-parse", "--abbrev-ref", "@{upstream}" }, { cwd = repo }):wait().code == 0
+  local has_upstream = vim.system({ "git", "rev-parse", "--abbrev-ref", "@{upstream}" }, { cwd = repo }):wait().code
+    == 0
   local args = has_upstream and { "push" } or { "push", "-u", "origin", "HEAD" }
   vim.notify("Pushing " .. name .. "...", vim.log.levels.INFO, { title = "git push" })
   git(args, repo, function(res)
@@ -956,13 +974,48 @@ function M.menu(picker, item)
     end
   end
   local actions = {
-    { "\u{f0045} Pull", function() M.pull(picker, item) end },
-    { "\u{f005d} Push", function() M.push(picker, item) end },
-    { "\u{f04e6} Sync (pull, then push)", function() M.sync(picker, item) end },
-    { "\u{f0450} Fetch", function() M.fetch(picker, item) end },
-    { "\u{f0718} Commit", function() M.commit(picker, item) end },
-    { "\u{f062c} Switch branch...", function() M.branch(picker, item) end },
-    { "\u{f0415} Create branch...", function() new_branch(picker, repo) end },
+    {
+      "\u{f0045} Pull",
+      function()
+        M.pull(picker, item)
+      end,
+    },
+    {
+      "\u{f005d} Push",
+      function()
+        M.push(picker, item)
+      end,
+    },
+    {
+      "\u{f04e6} Sync (pull, then push)",
+      function()
+        M.sync(picker, item)
+      end,
+    },
+    {
+      "\u{f0450} Fetch",
+      function()
+        M.fetch(picker, item)
+      end,
+    },
+    {
+      "\u{f0718} Commit",
+      function()
+        M.commit(picker, item)
+      end,
+    },
+    {
+      "\u{f062c} Switch branch...",
+      function()
+        M.branch(picker, item)
+      end,
+    },
+    {
+      "\u{f0415} Create branch...",
+      function()
+        new_branch(picker, repo)
+      end,
+    },
     {
       "\u{f0415} Create branch from...",
       function()
@@ -971,8 +1024,18 @@ function M.menu(picker, item)
         end)
       end,
     },
-    { "\u{f03eb} Rename branch...", function() rename_branch(picker, repo) end },
-    { "\u{f01b4} Delete branch...", function() delete_branch(picker, repo) end },
+    {
+      "\u{f03eb} Rename branch...",
+      function()
+        rename_branch(picker, repo)
+      end,
+    },
+    {
+      "\u{f01b4} Delete branch...",
+      function()
+        delete_branch(picker, repo)
+      end,
+    },
     {
       "\u{f062d} Merge branch into current...",
       function()

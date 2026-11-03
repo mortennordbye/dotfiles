@@ -129,7 +129,9 @@ M.items = {
   {
     icon = "",
     name = "Explorer",
-    active = function() return sidebar(false) ~= nil end,
+    active = function()
+      return sidebar(false) ~= nil
+    end,
     run = function()
       local open = sidebar(false)
       local cwd = close_sidebars()
@@ -150,8 +152,12 @@ M.items = {
   {
     icon = "",
     name = "Source Control",
-    active = function() return sidebar(true) ~= nil end,
-    badge = function() return M.changes end,
+    active = function()
+      return sidebar(true) ~= nil
+    end,
+    badge = function()
+      return M.changes
+    end,
     run = function()
       local open = sidebar(true)
       local cwd = close_sidebars()
@@ -187,7 +193,9 @@ M.items = {
     active = function()
       return filetype_visible("neotest-summary")
     end,
-    badge = function() return M.failed_tests end,
+    badge = function()
+      return M.failed_tests
+    end,
     run = function()
       leave_bar(true)
       require("neotest").summary.toggle()
@@ -214,7 +222,9 @@ M.items = {
     icon = "󰚩",
     name = "Claude Code",
     active = function()
-      return terminal_visible(function(cmd) return cmd ~= nil and cmd:find("claude") ~= nil end)
+      return terminal_visible(function(cmd)
+        return cmd ~= nil and cmd:find("claude") ~= nil
+      end)
     end,
     run = function()
       leave_bar()
@@ -227,8 +237,12 @@ M.items = {
     name = "Claude Hub",
     -- lua/config/claude_hub.lua: every Claude session from every nvim; the
     -- badge is how many of them are waiting on you
-    active = function() return require("config.claude_hub").is_open() end,
-    badge = function() return require("config.claude_hub").waiting end,
+    active = function()
+      return require("config.claude_hub").is_open()
+    end,
+    badge = function()
+      return require("config.claude_hub").waiting
+    end,
     run = function()
       leave_bar()
       require("config.claude_hub").toggle()
@@ -238,7 +252,9 @@ M.items = {
     icon = "",
     name = "Copilot CLI",
     active = function()
-      return terminal_visible(function(cmd) return cmd ~= nil and cmd:find("^copilot") ~= nil end)
+      return terminal_visible(function(cmd)
+        return cmd ~= nil and cmd:find("^copilot") ~= nil
+      end)
     end,
     run = function()
       leave_bar()
@@ -250,7 +266,9 @@ M.items = {
     name = "Antigravity CLI",
     optional = "on",
     active = function()
-      return terminal_visible(function(cmd) return cmd ~= nil and cmd:find("^agy") ~= nil end)
+      return terminal_visible(function(cmd)
+        return cmd ~= nil and cmd:find("^agy") ~= nil
+      end)
     end,
     run = function()
       leave_bar()
@@ -261,7 +279,9 @@ M.items = {
     icon = "",
     name = "Terminal",
     active = function()
-      return terminal_visible(function(cmd) return cmd == nil end)
+      return terminal_visible(function(cmd)
+        return cmd == nil
+      end)
     end,
     run = function()
       leave_bar()
@@ -273,8 +293,12 @@ M.items = {
     name = "Lock Layout",
     bottom = true,
     -- lit while locked; lua/config/layout.lua
-    active = function() return require("config.layout").locked end,
-    run = function() require("config.layout").toggle() end,
+    active = function()
+      return require("config.layout").locked
+    end,
+    run = function()
+      require("config.layout").toggle()
+    end,
   },
   {
     icon = "",
@@ -289,7 +313,9 @@ M.items = {
     icon = "",
     name = "Plugins",
     bottom = true,
-    run = function() require("lazy").show() end,
+    run = function()
+      require("lazy").show()
+    end,
   },
   {
     icon = "\u{eb51}",
@@ -326,7 +352,9 @@ function M.visible(item)
     return true
   end
   if not shown then
-    local ok, data = pcall(function() return vim.json.decode(table.concat(vim.fn.readfile(shown_file), "\n")) end)
+    local ok, data = pcall(function()
+      return vim.json.decode(table.concat(vim.fn.readfile(shown_file), "\n"))
+    end)
     shown = ok and type(data) == "table" and data or {}
   end
   if shown[item.name] == nil then
@@ -338,7 +366,9 @@ end
 -- Tick which optional icons to show. Picking one flips it and reopens the
 -- list, so several can be changed in a row; Esc closes it.
 function M.choose_icons()
-  local items = vim.tbl_filter(function(it) return it.optional ~= nil end, M.items)
+  local items = vim.tbl_filter(function(it)
+    return it.optional ~= nil
+  end, M.items)
   vim.ui.select(items, {
     prompt = "Activity bar icons",
     format_item = function(it)
@@ -357,25 +387,80 @@ end
 
 -- The gear's menu, like VSCode's Manage button: the places settings live.
 M.settings_menu = {
-  { "Config files", function() Snacks.picker.files({ cwd = vim.fn.stdpath("config") }) end },
-  { "Search config (grep)", function() Snacks.picker.grep({ cwd = vim.fn.stdpath("config") }) end },
-  { "LazyVim extras (feature bundles)", function() vim.cmd("LazyExtras") end },
-  { "Language servers & tools (Mason)", function() vim.cmd("Mason") end },
-  { "Colour scheme", function() Snacks.picker.colorschemes() end },
-  { "Toggle options (wrap, spell, diagnostics, ...)", function()
-    require("which-key").show({ keys = "<leader>u", loop = true })
-  end },
-  { "Keymaps", function() Snacks.picker.keymaps() end },
-  { "Cheatsheet", function() require("config.cheatsheet").open() end },
-  { "Choose activity bar icons (Antigravity, Debug, Testing, Problems)", function() M.choose_icons() end },
-  { "Health check", function() vim.cmd("checkhealth") end },
-  { "Restart Neovim (reload config)", function() run_map("<leader>qr") end }, -- lua/config/keymaps.lua
+  {
+    "Config files",
+    function()
+      Snacks.picker.files({ cwd = vim.fn.stdpath("config") })
+    end,
+  },
+  {
+    "Search config (grep)",
+    function()
+      Snacks.picker.grep({ cwd = vim.fn.stdpath("config") })
+    end,
+  },
+  {
+    "LazyVim extras (feature bundles)",
+    function()
+      vim.cmd("LazyExtras")
+    end,
+  },
+  {
+    "Language servers & tools (Mason)",
+    function()
+      vim.cmd("Mason")
+    end,
+  },
+  {
+    "Colour scheme",
+    function()
+      Snacks.picker.colorschemes()
+    end,
+  },
+  {
+    "Toggle options (wrap, spell, diagnostics, ...)",
+    function()
+      require("which-key").show({ keys = "<leader>u", loop = true })
+    end,
+  },
+  {
+    "Keymaps",
+    function()
+      Snacks.picker.keymaps()
+    end,
+  },
+  {
+    "Cheatsheet",
+    function()
+      require("config.cheatsheet").open()
+    end,
+  },
+  {
+    "Choose activity bar icons (Antigravity, Debug, Testing, Problems)",
+    function()
+      M.choose_icons()
+    end,
+  },
+  {
+    "Health check",
+    function()
+      vim.cmd("checkhealth")
+    end,
+  },
+  {
+    "Restart Neovim (reload config)",
+    function()
+      run_map("<leader>qr")
+    end,
+  }, -- lua/config/keymaps.lua
 }
 
 function M.settings()
   vim.ui.select(M.settings_menu, {
     prompt = "Settings",
-    format_item = function(item) return item[1] end,
+    format_item = function(item)
+      return item[1]
+    end,
   }, function(item)
     if item then
       item[2]()
@@ -491,7 +576,9 @@ function M.render()
     -- (ghostty/config maps these codepoints to a full-size icon font)
     text[#text + 1] = "  " .. item.icon .. "  "
     map[#text] = item
-    local ok, on = pcall(item.active or function() return false end)
+    local ok, on = pcall(item.active or function()
+      return false
+    end)
     marks[#marks + 1] = {
       #text - 1,
       0,
@@ -591,13 +678,23 @@ local function create_buf()
   -- nothing to scroll or select here: without these the wheel shifts the
   -- icons off their rows and a drag starts Visual mode
   for _, lhs in ipairs({
-    "<LeftDrag>", "<2-LeftMouse>", "<3-LeftMouse>", "<4-LeftMouse>",
-    "<ScrollWheelUp>", "<ScrollWheelDown>", "<ScrollWheelLeft>", "<ScrollWheelRight>",
+    "<LeftDrag>",
+    "<2-LeftMouse>",
+    "<3-LeftMouse>",
+    "<4-LeftMouse>",
+    "<ScrollWheelUp>",
+    "<ScrollWheelDown>",
+    "<ScrollWheelLeft>",
+    "<ScrollWheelRight>",
   }) do
     vim.keymap.set({ "n", "v" }, lhs, "<Nop>", { buffer = buf })
   end
-  map("j", function() step(1) end, "Next icon")
-  map("k", function() step(-1) end, "Previous icon")
+  map("j", function()
+    step(1)
+  end, "Next icon")
+  map("k", function()
+    step(-1)
+  end, "Previous icon")
   -- No cursor in the bar. It sat on an icon, where the terminal redraws the
   -- two-cell glyph as one cell and the icon visibly jumps; and arriving from
   -- a terminal could leave it in insert mode, showing a thin line.
@@ -629,7 +726,9 @@ local function create_buf()
   vim.api.nvim_create_autocmd("InsertEnter", {
     buffer = buf,
     callback = function()
-      vim.schedule(function() vim.cmd("stopinsert") end)
+      vim.schedule(function()
+        vim.cmd("stopinsert")
+      end)
     end,
   })
   -- nothing to select here, however Visual mode got started
@@ -798,11 +897,15 @@ function M.setup()
     end,
   })
   local timer = assert(vim.uv.new_timer())
-  timer:start(5000, 5000, vim.schedule_wrap(function()
-    if M.enabled and win() then
-      M.count_changes()
-    end
-  end))
+  timer:start(
+    5000,
+    5000,
+    vim.schedule_wrap(function()
+      if M.enabled and win() then
+        M.count_changes()
+      end
+    end)
+  )
   -- the wheel over an unfocused window scrolls it without the buffer's maps
   vim.api.nvim_create_autocmd("WinScrolled", {
     group = group,

@@ -68,23 +68,35 @@ map("n", "<leader>br", "<cmd>checktime<cr>", { desc = "Reload changed files from
 map("n", "<leader>bR", "<cmd>edit!<cr>", { desc = "Force reload buffer (discard changes)" })
 
 -- Show / hide the VSCode-style activity bar (lua/config/activitybar.lua).
-map("n", "<leader>uA", function() require("config.activitybar").toggle() end, { desc = "Toggle Activity Bar" })
+map("n", "<leader>uA", function()
+  require("config.activitybar").toggle()
+end, { desc = "Toggle Activity Bar" })
 -- Lock Layout (lua/config/layout.lua). Mapped here, not in its setup(): that
 -- runs from autocmds.lua, which LazyVim loads before snacks when nvim starts
 -- with a file or folder argument, so the Snacks global isn't there yet.
 Snacks.toggle({
   name = "Lock Layout",
-  get = function() return require("config.layout").locked end,
-  set = function(on) require("config.layout").set(on) end,
+  get = function()
+    return require("config.layout").locked
+  end,
+  set = function(on)
+    require("config.layout").set(on)
+  end,
 }):map("<leader>uP")
-map("n", "<leader>uX", function() require("config.activitybar").choose_icons() end, { desc = "Choose Activity Bar icons" })
+map("n", "<leader>uX", function()
+  require("config.activitybar").choose_icons()
+end, { desc = "Choose Activity Bar icons" })
 
 -- Claude hub (lua/config/claude_hub.lua): every Claude session on this machine,
 -- from any nvim, with its live chat; reply or approve without switching windows.
-map("n", "<leader>ah", function() require("config.claude_hub").toggle() end, { desc = "Claude hub (all sessions)" })
+map("n", "<leader>ah", function()
+  require("config.claude_hub").toggle()
+end, { desc = "Claude hub (all sessions)" })
 
 -- Keybinding cheatsheet (lua/config/cheatsheet.lua; content in cheatsheet_data.lua).
-map("n", "<leader>h", function() require("config.cheatsheet").open() end, { desc = "Cheatsheet" })
+map("n", "<leader>h", function()
+  require("config.cheatsheet").open()
+end, { desc = "Cheatsheet" })
 
 -- Restart nvim (0.12's :restart) and come back to the same files and splits,
 -- e.g. after changing this config. Terminals don't survive a restart, so the

@@ -31,7 +31,9 @@ local state_file = vim.fn.stdpath("state") .. "/layout_lock.json"
 
 M.locked = true
 do
-  local ok, data = pcall(function() return vim.json.decode(table.concat(vim.fn.readfile(state_file), "\n")) end)
+  local ok, data = pcall(function()
+    return vim.json.decode(table.concat(vim.fn.readfile(state_file), "\n"))
+  end)
   if ok and type(data) == "table" and type(data.locked) == "boolean" then
     M.locked = data.locked
   end
@@ -55,9 +57,7 @@ end
 -- A terminal panel (Claude, Copilot, Antigravity, the shell) in a split.
 ---@param w integer
 local function is_term_panel(w)
-  return vim.api.nvim_win_is_valid(w)
-    and not is_float(w)
-    and vim.bo[vim.api.nvim_win_get_buf(w)].buftype == "terminal"
+  return vim.api.nvim_win_is_valid(w) and not is_float(w) and vim.bo[vim.api.nvim_win_get_buf(w)].buftype == "terminal"
 end
 
 -- A side panel is narrower than most of the screen; a bottom one spans it.
@@ -256,9 +256,15 @@ local function log_stray(event, keep, stray)
   local function describe(w)
     local b = vim.api.nvim_win_get_buf(w)
     return ("win %d buf %d %s ft=%s %dx%d%s%s"):format(
-      w, b, vim.fn.fnamemodify(vim.api.nvim_buf_get_name(b), ":t"), vim.bo[b].filetype,
-      vim.api.nvim_win_get_width(w), vim.api.nvim_win_get_height(w),
-      vim.w[w].snacks_win and " snacks_win" or "", is_float(w) and " float" or "")
+      w,
+      b,
+      vim.fn.fnamemodify(vim.api.nvim_buf_get_name(b), ":t"),
+      vim.bo[b].filetype,
+      vim.api.nvim_win_get_width(w),
+      vim.api.nvim_win_get_height(w),
+      vim.w[w].snacks_win and " snacks_win" or "",
+      is_float(w) and " float" or ""
+    )
   end
   local lines = {
     "",
@@ -381,10 +387,11 @@ function M.setup()
         end
       end
       local closed_buf, where = ev.buf, slot(tab, closing)
-      vim.schedule(function() restore(tab, closed_buf, where, sizes) end)
+      vim.schedule(function()
+        restore(tab, closed_buf, where, sizes)
+      end)
     end,
   })
-
 end
 
 return M

@@ -59,9 +59,17 @@ function M.generate(diff, on_done, cwd)
 
   vim.notify("Generating commit message...", vim.log.levels.INFO, { title = "Commit message" })
   local args = {
-    CMD, "-s", "--model", MODEL, "--reasoning-effort", "low",
-    "--no-custom-instructions", "--available-tools", "view",
-    "-p", prompt .. "\n\nDiff:\n" .. diff,
+    CMD,
+    "-s",
+    "--model",
+    MODEL,
+    "--reasoning-effort",
+    "low",
+    "--no-custom-instructions",
+    "--available-tools",
+    "view",
+    "-p",
+    prompt .. "\n\nDiff:\n" .. diff,
   }
   vim.system(args, { text = true }, function(res)
     vim.schedule(function()

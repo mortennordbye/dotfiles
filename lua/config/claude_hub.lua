@@ -507,20 +507,32 @@ function M.open()
   end
   map(list_buf, "<CR>", with_selected(open_spoke))
   map(list_buf, "o", with_selected(open_spoke))
-  map(list_buf, "r", with_selected(function(s)
-    vim.ui.input({ prompt = "Reply to " .. s.project .. ": " }, function(text)
-      if text and text ~= "" then
-        send(s, text, true)
-      end
+  map(
+    list_buf,
+    "r",
+    with_selected(function(s)
+      vim.ui.input({ prompt = "Reply to " .. s.project .. ": " }, function(text)
+        if text and text ~= "" then
+          send(s, text, true)
+        end
+      end)
     end)
-  end))
-  map(list_buf, "y", with_selected(function(s)
-    send(s, "", true)
-  end))
+  )
+  map(
+    list_buf,
+    "y",
+    with_selected(function(s)
+      send(s, "", true)
+    end)
+  )
   for _, d in ipairs({ "1", "2", "3" }) do
-    map(list_buf, d, with_selected(function(s)
-      send(s, d, false)
-    end))
+    map(
+      list_buf,
+      d,
+      with_selected(function(s)
+        send(s, d, false)
+      end)
+    )
   end
   vim.api.nvim_create_autocmd("CursorMoved", {
     buffer = list_buf,

@@ -62,7 +62,10 @@ local function items()
         group = row.group
       else
         ret[#ret + 1] = {
-          text = table.concat({ sec.name, sec.title or "", group or "", row[1], row[2], row.note or "", row.kw or "" }, " "),
+          text = table.concat(
+            { sec.name, sec.title or "", group or "", row[1], row[2], row.note or "", row.kw or "" },
+            " "
+          ),
           section = sec.name,
           keys = row[1],
           desc = row[2],
@@ -214,15 +217,24 @@ local function render()
 
   -- header: what the page is and how to move around it
   local header = {
-    { { "  LazyVim cheatsheet", "CheatsheetTitle" }, { "   ★ = a key this config adds or changes", "CheatsheetNote" } },
+    {
+      { "  LazyVim cheatsheet", "CheatsheetTitle" },
+      { "   ★ = a key this config adds or changes", "CheatsheetNote" },
+    },
     {
       { "  " },
-      { "/", "CheatsheetKeys" }, { " find on the page   ", "CheatsheetNote" },
-      { "s", "CheatsheetKeys" }, { " fuzzy search   ", "CheatsheetNote" },
-      { "Tab", "CheatsheetKeys" }, { " / ", "CheatsheetNote" }, { "S-Tab", "CheatsheetKeys" },
+      { "/", "CheatsheetKeys" },
+      { " find on the page   ", "CheatsheetNote" },
+      { "s", "CheatsheetKeys" },
+      { " fuzzy search   ", "CheatsheetNote" },
+      { "Tab", "CheatsheetKeys" },
+      { " / ", "CheatsheetNote" },
+      { "S-Tab", "CheatsheetKeys" },
       { " next / previous section   ", "CheatsheetNote" },
-      { "gs", "CheatsheetKeys" }, { " go to section   ", "CheatsheetNote" },
-      { "q", "CheatsheetKeys" }, { " close", "CheatsheetNote" },
+      { "gs", "CheatsheetKeys" },
+      { " go to section   ", "CheatsheetNote" },
+      { "q", "CheatsheetKeys" },
+      { " close", "CheatsheetNote" },
     },
     {},
   }
@@ -377,14 +389,32 @@ function M.open()
     keys = {
       q = "close",
       ["<Esc>"] = "close",
-      s = { function() sheet.win:close(); M.search() end, desc = "Fuzzy search" },
-      ["<Tab>"] = { function() step(1) end, desc = "Next section" },
-      ["<S-Tab>"] = { function() step(-1) end, desc = "Previous section" },
+      s = {
+        function()
+          sheet.win:close()
+          M.search()
+        end,
+        desc = "Fuzzy search",
+      },
+      ["<Tab>"] = {
+        function()
+          step(1)
+        end,
+        desc = "Next section",
+      },
+      ["<S-Tab>"] = {
+        function()
+          step(-1)
+        end,
+        desc = "Previous section",
+      },
       gs = {
         function()
           vim.ui.select(sheet.cards, {
             prompt = "Go to section",
-            format_item = function(c) return c.name end,
+            format_item = function(c)
+              return c.name
+            end,
           }, function(c)
             if c then
               goto_card(c)

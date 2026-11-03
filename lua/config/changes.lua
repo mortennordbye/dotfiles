@@ -145,7 +145,12 @@ function M.open(cwd)
       list = {
         keys = {
           ["l"] = "confirm",
-          ["u"] = { function(picker) picker:find() end, desc = "Refresh" },
+          ["u"] = {
+            function(picker)
+              picker:find()
+            end,
+            desc = "Refresh",
+          },
           ["C"] = {
             function(picker)
               local dir = picker:cwd()
@@ -155,7 +160,14 @@ function M.open(cwd)
             desc = "Back to explorer",
           },
         },
-        wo = { number = false, relativenumber = false, signcolumn = "no", statuscolumn = "", cursorline = true, winbar = "" },
+        wo = {
+          number = false,
+          relativenumber = false,
+          signcolumn = "no",
+          statuscolumn = "",
+          cursorline = true,
+          winbar = "",
+        },
       },
     },
   })

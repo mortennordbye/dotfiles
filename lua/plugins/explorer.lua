@@ -20,7 +20,13 @@ return {
     end
   end,
   keys = {
-    { "<leader>gC", function() require("config.changes").open() end, desc = "Changes sidebar" },
+    {
+      "<leader>gC",
+      function()
+        require("config.changes").open()
+      end,
+      desc = "Changes sidebar",
+    },
   },
   opts = {
     picker = {
