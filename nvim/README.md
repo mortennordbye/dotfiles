@@ -7,12 +7,11 @@ useful.
 
 ## Install
 
-Back up anything you already have, then clone the repo and link this folder into place:
+Follow [Get started](../README.md#get-started), or link only this config:
 
 ```sh
 git clone https://github.com/mortennordbye/dotfiles ~/dotfiles
-mv ~/.config/nvim ~/.config/nvim.bak
-ln -s ~/dotfiles/nvim ~/.config/nvim
+~/dotfiles/install.sh nvim
 nvim
 ```
 
@@ -33,8 +32,11 @@ NVIM_APPNAME=nvim-morten nvim
 Developed on macOS with Neovim 0.12, running in [Ghostty](../ghostty/config). It should mostly
 work on Linux, but that is untested.
 
-- [LazyVim's requirements](https://www.lazyvim.org/#%EF%B8%8F-requirements): git, a C
-  compiler, a [Nerd Font](https://www.nerdfonts.com/), and a terminal with true color
+`install.sh` checks all of these and prints how to get what is missing.
+
+- Neovim 0.11.2 or newer, which [LazyVim requires](https://www.lazyvim.org/#%EF%B8%8F-requirements)
+- git, a C compiler, and a terminal with true color
+- A [Nerd Font](https://www.nerdfonts.com/)
 - `ripgrep` and `fd`
 - Node.js and Python, which several of the language servers Mason installs are built on
 
@@ -47,7 +49,6 @@ Everything here is for one feature, and the rest of the config works without it.
 | [Claude Code](https://claude.com/claude-code) | Claude panel and Claude Hub |
 | GitHub Copilot CLI | Copilot panel and generated commit messages |
 | `agy` (Antigravity CLI) | Antigravity panel |
-| `gitui` | Git UI from LazyVim's extra |
 | Google Chrome | Chromeless preview window on macOS; otherwise your default browser |
 | [`ruter-cli`](https://github.com/mortennordbye/ruter-cli) | Next departure in the statusline (Norwegian public transport) |
 
