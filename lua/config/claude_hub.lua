@@ -46,6 +46,9 @@ local function bar_refresh()
   end
 end
 
+-- Claude's Notification text for sitting idle, as opposed to asking for permission.
+local IDLE_NOTICE = "Claude is waiting for your input"
+
 local function read_file(path)
   local f = io.open(path, "r")
   if not f then
@@ -57,7 +60,7 @@ local function read_file(path)
 end
 
 local function alive(pid)
-  return pid and vim.api.nvim_get_proc(pid) ~= nil
+  return pid and uv.kill(pid, 0) == 0 -- signal 0 only checks; get_proc spawns ps
 end
 
 --- Live sessions, each with its attention state folded in, sorted so the ones
@@ -68,13 +71,23 @@ function M.sessions()
     local ok, s = pcall(vim.json.decode, read_file(path) or "")
     if ok and type(s) == "table" and s.sessionId and alive(s.pid) then
       s.project = s.cwd == HOME and "~" or vim.fs.basename(s.cwd or "?")
-      local attn = read_file(ATTN .. "/" .. s.sessionId)
+      local marker = ATTN .. "/" .. s.sessionId
+      local attn = read_file(marker)
+      local marked_at = 0
       if attn then
         local kind, msg = attn:match("^(%S+)%s*(.-)%s*$")
         s.attn, s.attn_msg = kind, msg
+        local stat = uv.fs_stat(marker)
+        marked_at = stat and stat.mtime.sec * 1000 or 0
       end
-      -- busy beats a stale "done": the marker is only cleared by the next prompt
-      if s.attn == "input" then
+      -- The hook also writes "input" for Claude's idle timeout, and only clears it
+      -- on the next prompt or finished tool. So an idle session with that text has
+      -- just finished, and one that went busy after the marker was written has
+      -- been answered. Otherwise busy beats a stale "done".
+      local waiting = s.attn == "input"
+        and not (s.status == "idle" and s.attn_msg == IDLE_NOTICE)
+        and not (s.status == "busy" and (s.statusUpdatedAt or 0) > marked_at)
+      if waiting then
         s.state = "input"
       elseif s.status == "busy" then
         s.state = "busy"
@@ -117,14 +130,21 @@ local function tail(path)
   return data
 end
 
-local utc_offset = os.time() - os.time(os.date("!*t"))
+--- Epoch seconds for date fields that are in UTC. The offset is taken at that
+--- moment, so a summer timestamp read in winter still gets the summer offset.
+local function utc_epoch(fields)
+  local t = os.time(fields) -- the UTC fields read as local time
+  local here, utc = os.date("*t", t), os.date("!*t", t)
+  utc.isdst = here.isdst
+  return t + os.time(here) - os.time(utc)
+end
+
 local function clock(ts)
   local y, mo, d, h, mi, sec = (ts or ""):match("^(%d+)-(%d+)-(%d+)T(%d+):(%d+):(%d+)")
   if not y then
     return ""
   end
-  local t = os.time({ year = y, month = mo, day = d, hour = h, min = mi, sec = sec }) + utc_offset
-  return os.date("%H:%M", t)
+  return os.date("%H:%M", utc_epoch({ year = y, month = mo, day = d, hour = h, min = mi, sec = sec }))
 end
 
 local function tool_summary(item)
@@ -219,15 +239,16 @@ end
 -- Runs inside the nvim that owns the session (locally, or over RPC). Finds the
 -- terminal whose job is the claude process and writes to it. Text goes in as a
 -- bracketed paste so newlines stay in the prompt; Enter follows separately, the
--- way a real keypress would, after Claude has taken the paste.
+-- way a real keypress would, after Claude has taken the paste. `raw` skips the
+-- paste, for a menu choice: a menu reads keypresses, not pasted text.
 local SEND = [[
-local pid, text, enter = ...
+local pid, text, enter, raw = ...
 for _, c in ipairs(vim.api.nvim_list_chans()) do
   if c.mode == "terminal" then
     local ok, jp = pcall(vim.fn.jobpid, c.id)
     if ok and jp == pid then
       if text ~= "" then
-        vim.fn.chansend(c.id, "\27[200~" .. text .. "\27[201~")
+        vim.fn.chansend(c.id, raw and text or ("\27[200~" .. text .. "\27[201~"))
       end
       if enter then
         vim.defer_fn(function() vim.fn.chansend(c.id, "\r") end, text ~= "" and 120 or 0)
@@ -244,8 +265,9 @@ local function owner_socket(ppid)
   return vim.fn.glob(base .. "/*/nvim." .. ppid .. ".0", false, true)[1]
 end
 
---- Type into a session, wherever it runs. `enter` presses Enter afterwards.
-local function send(s, text, enter)
+--- Type into a session, wherever it runs. `enter` presses Enter afterwards,
+--- `raw` sends text as keypresses instead of a paste.
+local function send(s, text, enter, raw)
   local proc = vim.api.nvim_get_proc(s.pid)
   local ppid = proc and proc.ppid
   if not ppid then
@@ -253,7 +275,7 @@ local function send(s, text, enter)
   end
   local ok, res
   if ppid == vim.fn.getpid() then
-    ok, res = pcall(assert(loadstring(SEND)), s.pid, text, enter)
+    ok, res = pcall(assert(loadstring(SEND)), s.pid, text, enter, raw)
   else
     local sock = owner_socket(ppid)
     if not sock then
@@ -262,12 +284,14 @@ local function send(s, text, enter)
         vim.log.levels.WARN
       )
     end
+    local ch
     ok, res = pcall(function()
-      local ch = vim.fn.sockconnect("pipe", sock, { rpc = true })
-      local r = vim.rpcrequest(ch, "nvim_exec_lua", SEND, { s.pid, text, enter })
-      vim.fn.chanclose(ch)
-      return r
+      ch = vim.fn.sockconnect("pipe", sock, { rpc = true })
+      return vim.rpcrequest(ch, "nvim_exec_lua", SEND, { s.pid, text, enter, raw })
     end)
+    if ch then
+      pcall(vim.fn.chanclose, ch) -- also when the request failed
+    end
   end
   if not ok or not res then
     vim.notify("Claude hub: could not reach the Claude terminal in " .. s.project, vim.log.levels.WARN)
@@ -530,7 +554,7 @@ function M.open()
       list_buf,
       d,
       with_selected(function(s)
-        send(s, d, false)
+        send(s, d, false, true)
       end)
     )
   end
