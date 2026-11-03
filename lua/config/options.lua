@@ -7,7 +7,7 @@
 --
 -- Deliberately minimal:
 --   * cwd is shown as its tail ("Homelab"), except at $HOME where the tail is
---     the account name ("first.last") and "~" is what you mean.
+--     the account name (first.last) and "~" is what you mean.
 --   * an unnamed buffer (dashboard, scratch) contributes nothing rather than
 --     the placeholder "[no name]".
 --   * no "(nvim)" suffix -- the app is already obvious from the window itself.

@@ -6,3 +6,10 @@ debug
 foo.*
 *.log
 data
+
+# Never commit credentials or machine-local settings.
+.env
+.env.*
+*.pem
+*.key
+*.local.lua
