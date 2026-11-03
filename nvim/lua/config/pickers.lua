@@ -9,9 +9,9 @@ local M = {}
 -- Where repositories actually live on this machine. snacks ships
 -- { "~/dev", "~/projects" } as its default, neither of which exists here.
 M.dev_roots = {
-  "~/Documents/github",
-  "~/Documents/gitlab",
-  "~/Documents/local-git",
+  "~/Documents/Code/github",
+  "~/Documents/Code/gitlab",
+  "~/Documents/Code/local-git",
 }
 
 -- Root for the plain folder picker, and how deep to descend.

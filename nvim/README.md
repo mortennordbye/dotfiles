@@ -58,7 +58,7 @@ described at the top of `lua/config/claude_hub.lua`.
 
 ## Things you may want to change
 
-- **Project folders:** the pickers scan `~/Documents/{github,gitlab,local-git}`, set at the
+- **Project folders:** the pickers scan `~/Documents/Code/{github,gitlab,local-git}`, set at the
   top of `lua/config/pickers.lua`.
 - **Activity bar icons:** `<leader>uX` chooses them and `<leader>uA` hides the bar.
 - **Lock Layout:** `<leader>uP` toggles it. See `lua/config/layout.lua`.
