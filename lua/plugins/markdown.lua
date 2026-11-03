@@ -21,10 +21,11 @@ return {
   -- and re-renders on every change (undo, :s, formatters, external writes).
   {
     "iamcco/markdown-preview.nvim",
-    ft = "markdown",
+    ft = { "markdown", "markdown.mdx" },
     init = function()
       -- The plugin default closes the browser tab on BufHidden, so the
       -- preview dies the moment you switch buffer. VSCode keeps it open.
+      vim.g.mkdp_filetypes = { "markdown", "markdown.mdx" }
       vim.g.mkdp_auto_close = 0
 
       -- Reuse one browser tab and re-point it at the markdown buffer you
@@ -69,10 +70,15 @@ return {
         function()
           vim.cmd(vim.g.mkdp_clients_active == 1 and "MarkdownPreviewStop" or "MarkdownPreview")
         end,
-        ft = "markdown",
+        ft = { "markdown", "markdown.mdx" },
         desc = "Markdown HTML Preview (browser)",
       },
-      { "<leader>cP", "<cmd>MarkdownPreview<cr>", ft = "markdown", desc = "Markdown Preview: re-open window" },
+      {
+        "<leader>cP",
+        "<cmd>MarkdownPreview<cr>",
+        ft = { "markdown", "markdown.mdx" },
+        desc = "Markdown Preview: re-open window",
+      },
     },
     config = function()
       vim.cmd([[do FileType]])

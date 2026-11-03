@@ -10,7 +10,7 @@ function M.open_url(url)
   if M.app_window and vim.fn.executable(chrome) == 1 then
     vim.fn.jobstart({ chrome, "--app=" .. url, "--window-size=1000,1200" }, { detach = true })
   else
-    vim.fn.jobstart({ "open", url }, { detach = true }) -- default browser
+    vim.ui.open(url) -- default browser
   end
 end
 

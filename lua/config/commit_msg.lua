@@ -85,7 +85,7 @@ function M.generate(diff, on_done, cwd)
       local lines = {}
       for _, line in ipairs(vim.split(res.stdout or "", "\n")) do
         -- code fences the model may add despite the instruction, and trailers
-        if not line:match("^```") and not line:match("^Co%-authored%-by:") then
+        if not line:match("^```") and not line:lower():match("^co%-authored%-by:") then
           lines[#lines + 1] = line
         end
       end

@@ -150,14 +150,14 @@ end
 ---@param width number
 ---@return string
 function M.render(text, width)
-  text = text:upper()
+  text = vim.fn.toupper(text) -- string.upper leaves æ, ø and å alone
   for _, font in ipairs({ { shadow, "" }, { mini_halved, " " } }) do
     local lines = draw(text, font[1], font[2])
     if lines and vim.api.nvim_strwidth(lines[1]) <= width then
       return table.concat(lines, "\n")
     end
   end
-  local spaced = vim.fn.join(vim.split(text, ""), " ")
+  local spaced = vim.fn.join(vim.fn.split(text, "\\zs"), " ")
   return vim.api.nvim_strwidth(spaced) <= width and spaced or text
 end
 
