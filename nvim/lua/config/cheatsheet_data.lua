@@ -49,7 +49,7 @@ return {
     { "Space /", "Grep — search text in project", kw = "grep ripgrep search text find in files content string" },
     { "⌥r in grep", "Find & replace: opens grug-far with the grep text and folder filled in; type the replacement and apply", note = "or open it directly with Space s r", custom = true, kw = "find and replace search replace rename across project files grug far vscode" },
     { "Space e", "Toggle file explorer", kw = "tree sidebar explorer neotree nerdtree drawer" },
-    { "Space f p", "Open a project (git repos)", note = "scans ~/Documents/github, gitlab, local-git; loads that project's session", custom = true, kw = "project repo git switch open start where jump repository" },
+    { "Space f p", "Open a project (git repos)", note = "scans ~/Documents/Code/github, gitlab, local-git; loads that project's session", custom = true, kw = "project repo git switch open start where jump repository" },
     { "Space f ⇧D", "Open a folder (any dir under ~/Documents)", note = "for folders that are not repos; sets the tab's cwd and opens the explorer", custom = true, kw = "folder directory picker documents obsidian latex scripts non-repo cd" },
     { "Space ,", "Switch between open buffers", kw = "switch buffer open files list" },
     { "Space f n", "New file", kw = "create new file touch" },
