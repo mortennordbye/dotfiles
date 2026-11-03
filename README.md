@@ -42,7 +42,7 @@ Everything here is for one feature, and the rest of the config works without it.
 | `agy` (Antigravity CLI) | Antigravity panel |
 | `gitui` | Git UI from LazyVim's extra |
 | Google Chrome | Chromeless preview window on macOS; otherwise your default browser |
-| `ruter` CLI | Next departure in the statusline (Oslo public transport) |
+| [`ruter-cli`](https://github.com/mortennordbye/ruter-cli) | Next departure in the statusline (Norwegian public transport) |
 
 Claude Hub lists sessions from `~/.claude/sessions`. Its "needs you" and "your turn" states
 also need a Claude Code hook that writes `~/.claude/attention/<session id>`; the format is
