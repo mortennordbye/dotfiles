@@ -108,8 +108,7 @@ vim.api.nvim_create_autocmd("FileChangedShellPost", {
 -- LazyVim evens out the splits on VimResized with `tabdo wincmd =`. In a
 -- resize from outside (AeroSpace re-tiling, a monitor change) that call left a
 -- second window on the Claude panel, made inside the autocmd so no WinNew
--- fired for it (see layout_stray.log entries from 2026-10-19). Same job on
--- the current tab only, without tabdo.
+-- fired for it. Same job on the current tab only, without tabdo.
 pcall(vim.api.nvim_del_augroup_by_name, "lazyvim_resize_splits")
 vim.api.nvim_create_autocmd("VimResized", {
   group = vim.api.nvim_create_augroup("resize_splits", { clear = true }),

@@ -198,95 +198,7 @@ local function keep_first(a, b)
   return a < b
 end
 
--- DEBUG (temporary): something splits the Claude panel with autocommands off,
--- so its creation can't be hooked. Keep the last keys and commands, and when
--- a stray turns up write them to stray_log with the event that caught it.
--- WinNew/BufWinEnter means an ordinary split; WinResized/WinEnter is the
--- unknown one. Remove once the cause is found.
-local stray_log = vim.fn.stdpath("state") .. "/layout_stray.log"
--- global so a reloaded copy of this file keeps adding to the same list
-_G.layout_stray_history = _G.layout_stray_history or {}
-local history = _G.layout_stray_history ---@type string[]
-
----@param line string
-local function remember(line)
-  table.insert(history, os.date("%H:%M:%S ") .. line)
-  if #history > 60 then
-    table.remove(history, 1)
-  end
-end
-
--- A terminal shown in more than one split on this tab.
-local function has_copy()
-  local seen = {} ---@type table<integer, boolean>
-  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if is_term_panel(w) then
-      local b = vim.api.nvim_win_get_buf(w)
-      if seen[b] then
-        return true
-      end
-      seen[b] = true
-    end
-  end
-  return false
-end
-
--- Keys only explain splits you made. For one a plugin made from Lua, wrap
--- the API calls a split goes through and keep a stack trace whenever one
--- leaves a terminal in two windows.
-local function watch_api()
-  for _, name in ipairs({ "nvim_exec2", "nvim_command", "nvim_cmd", "nvim_open_win", "nvim_win_call" }) do
-    local orig = vim.api[name]
-    vim.api[name] = function(...)
-      local before, had = #vim.api.nvim_list_wins(), has_copy()
-      local ret = vim.F.pack_len(orig(...))
-      if not had and #vim.api.nvim_list_wins() > before and has_copy() then
-        local trace = debug.traceback("", 2):gsub("\n%s*", " <- "):gsub("^ <%- stack traceback: <%- ", "")
-        remember(("api  %s made a copy: %s"):format(name, trace))
-      end
-      return vim.F.unpack_len(ret)
-    end
-  end
-end
-
----@param event string
----@param keep integer
----@param stray integer
-local function log_stray(event, keep, stray)
-  local function describe(w)
-    local b = vim.api.nvim_win_get_buf(w)
-    return ("win %d buf %d %s ft=%s %dx%d%s%s"):format(
-      w,
-      b,
-      vim.fn.fnamemodify(vim.api.nvim_buf_get_name(b), ":t"),
-      vim.bo[b].filetype,
-      vim.api.nvim_win_get_width(w),
-      vim.api.nvim_win_get_height(w),
-      vim.w[w].snacks_win and " snacks_win" or "",
-      is_float(w) and " float" or ""
-    )
-  end
-  local lines = {
-    "",
-    ("=== %s caught by %s, closing win %d, keeping win %d"):format(os.date("%Y-%m-%d %H:%M:%S"), event, stray, keep),
-    "layout: " .. vim.inspect(vim.fn.winlayout()):gsub("%s+", " "),
-    "current: " .. describe(vim.api.nvim_get_current_win()) .. " mode=" .. vim.api.nvim_get_mode().mode,
-  }
-  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if not is_float(w) then
-      table.insert(lines, "  " .. describe(w))
-    end
-  end
-  table.insert(lines, "recent keys and commands, oldest first:")
-  vim.list_extend(lines, history)
-  pcall(vim.fn.writefile, lines, stray_log, "a")
-  if event == "WinResized" or event == "WinEnter" then
-    vim.notify("Closed a hidden copy of a terminal panel; details in " .. stray_log, vim.log.levels.WARN)
-  end
-end
-
----@param event string
-local function dedupe(event)
+local function dedupe()
   if not M.locked then
     return
   end
@@ -302,7 +214,6 @@ local function dedupe(event)
     if #wins > 1 then
       table.sort(wins, keep_first)
       for i = 2, #wins do
-        pcall(log_stray, event, wins[1], wins[i])
         pcall(vim.api.nvim_win_close, wins[i], true)
       end
     end
@@ -331,36 +242,11 @@ function M.setup()
   -- still resizes its neighbour on the next redraw, and entering it counts too.
   vim.api.nvim_create_autocmd({ "TermOpen", "BufWinEnter", "WinNew", "WinResized", "WinEnter" }, {
     group = group,
-    callback = function(ev)
+    callback = function()
       vim.schedule(function()
         pin_all()
-        dedupe(ev.event)
+        dedupe()
       end)
-    end,
-  })
-
-  -- DEBUG (temporary), feeds log_stray. Plain typing in insert, terminal or cmdline
-  -- mode is folded into one entry so it doesn't push the interesting keys out.
-  vim.on_key(function(key, typed)
-    local k = vim.fn.keytrans(typed ~= "" and typed or key)
-    if k == "" then
-      return
-    end
-    local mode = vim.api.nvim_get_mode().mode
-    local typing = (mode == "t" or mode == "c" or mode:sub(1, 1) == "i") and #k == 1
-    if typing and history[#history] and history[#history]:find("typing$") then
-      return
-    end
-    remember(("key %-4s %s"):format(mode, typing and "typing" or k))
-  end, vim.api.nvim_create_namespace("layout_stray_debug"))
-  if not vim.g.layout_stray_watch then
-    vim.g.layout_stray_watch = true -- once, also when this file is reloaded
-    watch_api()
-  end
-  vim.api.nvim_create_autocmd("CmdlineLeave", {
-    group = group,
-    callback = function()
-      remember("cmd  :" .. vim.fn.getcmdline())
     end,
   })
 
