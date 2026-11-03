@@ -15,8 +15,9 @@ git clone https://github.com/mortennordbye/nvim ~/.config/nvim
 nvim
 ```
 
-The first start installs the plugins pinned in `lazy-lock.json`, then treesitter parsers and
-language servers. Give it a few minutes.
+The first start installs the plugins, then treesitter parsers and language servers. Give it
+a few minutes. Some plugins can end up newer than `lazy-lock.json`; run `:Lazy restore` to
+get exactly the pinned versions.
 
 To try it next to your own config without touching it, clone it to `~/.config/nvim-morten`
 and run `NVIM_APPNAME=nvim-morten nvim`.
