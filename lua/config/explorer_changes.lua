@@ -558,11 +558,20 @@ end
 ---@param repo string
 ---@param on_done fun(res: vim.SystemCompleted)
 ---@param stdin? string
-local function git(args, repo, on_done, stdin)
-  vim.system(vim.list_extend({ "git" }, args), { cwd = repo, text = true, stdin = stdin }, function(res)
+---@param on_fail? fun()
+local function git(args, repo, on_done, stdin, on_fail)
+  -- literal: a file named `a[bc].txt` must not also match `ab.txt` in a discard
+  local cmd = vim.list_extend({ "git", "--literal-pathspecs" }, args)
+  vim.system(cmd, { cwd = repo, text = true, stdin = stdin }, function(res)
     vim.schedule(function()
       if res.code ~= 0 then
-        vim.notify(vim.trim(res.stderr or res.stdout or ""), vim.log.levels.ERROR, { title = "git " .. args[1] })
+        -- stderr is "" rather than nil when empty; commit and merge report on stdout
+        local out = res.stderr ~= "" and res.stderr or res.stdout or ""
+        vim.notify(vim.trim(out), vim.log.levels.ERROR, { title = "git " .. args[1] })
+        vim.cmd.checktime() -- a failed merge or pull can still have changed files
+        if on_fail then
+          on_fail()
+        end
         return
       end
       on_done(res)
@@ -686,7 +695,8 @@ end
 ---@param on_submit fun(msg: string)
 ---@param diff fun(): string the changes the commit will contain
 ---@param cwd string the repo
-local function message_box(title, on_submit, diff, cwd)
+---@param initial? string text to start with
+local function message_box(title, on_submit, diff, cwd, initial)
   local function submit(win)
     local lines = vim.api.nvim_buf_get_lines(win.buf, 0, -1, false)
     local msg = vim.trim(table.concat(lines, "\n"))
@@ -713,6 +723,7 @@ local function message_box(title, on_submit, diff, cwd)
     footer = " <C-s> commit   <C-g> ✨ generate   <Esc> q cancel ",
     footer_pos = "center",
     bo = { filetype = "gitcommit" },
+    text = initial,
     enter = true,
     wo = { wrap = true, spell = true, number = false, relativenumber = false, signcolumn = "no" },
     keys = {
@@ -742,20 +753,31 @@ function M.commit(picker, item)
     local all = staged == 0
     local title = all and ("Commit all tracked changes in " .. name)
       or ("Commit " .. staged .. " staged file" .. (staged == 1 and "" or "s") .. " in " .. name)
-    message_box(title, function(msg)
-      git(all and { "commit", "-a", "-F", "-" } or { "commit", "-F", "-" }, repo, function(done)
-        vim.notify(
-          vim.split(vim.trim(done.stdout or ""), "\n")[1] .. "\n\ngp to push",
-          vim.log.levels.INFO,
-          { title = "git commit" }
+    local function ask(initial)
+      message_box(title, function(msg)
+        git(
+          all and { "commit", "-a", "-F", "-" } or { "commit", "-F", "-" },
+          repo,
+          function(done)
+            vim.notify(
+              vim.split(vim.trim(done.stdout or ""), "\n")[1] .. "\n\ngp to push",
+              vim.log.levels.INFO,
+              { title = "git commit" }
+            )
+            refresh(picker, repo)
+          end,
+          msg,
+          function()
+            ask(msg) -- the commit failed: don't lose what was typed
+          end
         )
-        refresh(picker, repo)
-      end, msg)
-    end, function()
-      -- what the commit will contain: the index, or with -a every tracked change
-      local args = all and { "git", "diff", "HEAD" } or { "git", "diff", "--cached" }
-      return vim.system(args, { cwd = repo, text = true }):wait().stdout or ""
-    end, repo)
+      end, function()
+        -- what the commit will contain: the index, or with -a every tracked change
+        local args = all and { "git", "diff", "HEAD" } or { "git", "diff", "--cached" }
+        return vim.system(args, { cwd = repo, text = true }):wait().stdout or ""
+      end, repo, initial)
+    end
+    ask()
   end)
 end
 
